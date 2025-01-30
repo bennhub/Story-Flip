@@ -41,22 +41,24 @@ const StorySlider = () => {
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
-
+  
     const newStories = files.map(file => {
       const url = URL.createObjectURL(file);
       const fileType = file.type.split('/')[0]; // 'image', 'video', or 'audio'
-
+  
+      // Prompt the user to enter a caption
+      const caption = prompt(`Enter a caption for ${file.name}:`) || file.name;
+  
       return {
         type: fileType,
         url: url,
-        caption: file.name,
+        caption: caption, // Store the caption
         duration: fileType === 'audio' || fileType === 'video' ? 0 : undefined
       };
     });
-
+  
     setStories(prevStories => [...prevStories, ...newStories]);
   };
-
   const handleTouchStart = (e) => {
     setTouchStart(e.touches[0].clientX);
   };
@@ -124,17 +126,20 @@ const StorySlider = () => {
     switch (story.type) {
       case 'image':
         return (
-          <img
-            src={story.url}
-            alt={story.caption}
-            className="media-content"
-          />
+          <div className="media-content">
+            <img
+              src={story.url}
+              alt={story.caption}
+              className="media-content"
+            />
+            <div className="caption">{story.caption}</div> {/* Display caption */}
+          </div>
         );
       case 'video':
         return (
           <div className="media-content">
             <video
-              key={index} // Force re-render when index changes
+              key={index}
               ref={mediaRef}
               className="media-content"
               controls
@@ -145,14 +150,15 @@ const StorySlider = () => {
               <source src={story.url} type="video/mp4" />
               Your browser does not support the video tag.
             </video>
+            <div className="caption">{story.caption}</div> {/* Display caption */}
           </div>
         );
       case 'audio':
         return (
           <div className="audio-container">
-            <h3>{story.caption}</h3>
+            <h3>{story.caption}</h3> {/* Display caption */}
             <audio
-              key={index} // Force re-render when index changes
+              key={index}
               ref={mediaRef}
               controls
               onPlay={() => setIsPlaying(true)}

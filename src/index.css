@@ -194,3 +194,11 @@ body {
 .upload-button-small:hover {
   background: rgba(0, 0, 0, 0.7);
 }
+.caption-input {
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 80%;
+  max-width: 300px;
+}
