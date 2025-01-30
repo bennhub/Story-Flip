@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
 
 const StorySlider = () => {
@@ -8,14 +8,42 @@ const StorySlider = () => {
   const [touchEnd, setTouchEnd] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [stories, setStories] = useState([]);
+  const mediaRef = useRef(null);
+
+  useEffect(() => {
+    const currentStory = stories[currentIndex];
+  
+    // Autoplay current story if it's a video or audio
+    if (currentStory?.type === 'video' || currentStory?.type === 'audio') {
+      const mediaElement = mediaRef.current;
+      if (mediaElement) {
+        mediaElement.play().catch(err => console.log('Autoplay prevented:', err));
+      }
+    }
+  
+    // Preload the next story's media
+    if (currentIndex < stories.length - 1) {
+      const nextStory = stories[currentIndex + 1];
+      if (nextStory) {
+        if (nextStory.type === 'image') {
+          const img = new Image();
+          img.src = nextStory.url; // Preload the image
+        } else if (nextStory.type === 'video' || nextStory.type === 'audio') {
+          const media = document.createElement(nextStory.type === 'video' ? 'video' : 'audio');
+          media.src = nextStory.url;
+          media.preload = 'auto'; // Preload the video or audio
+        }
+      }
+    }
+  }, [currentIndex, stories]);
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
-    
+
     const newStories = files.map(file => {
       const url = URL.createObjectURL(file);
       const fileType = file.type.split('/')[0]; // 'image', 'video', or 'audio'
-      
+
       return {
         type: fileType,
         url: url,
@@ -25,6 +53,113 @@ const StorySlider = () => {
     });
 
     setStories(prevStories => [...prevStories, ...newStories]);
+  };
+
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe && currentIndex < stories.length - 1) {
+      handleNext();
+    }
+    if (isRightSwipe && currentIndex > 0) {
+      handlePrevious();
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
+
+  const handleNext = () => {
+    if (currentIndex < stories.length - 1 && !isTransitioning) {
+      pauseCurrentMedia();
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex(currentIndex + 1);
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 300);
+      }, 10);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0 && !isTransitioning) {
+      pauseCurrentMedia();
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex(currentIndex - 1);
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 300);
+      }, 10);
+    }
+  };
+
+  const pauseCurrentMedia = () => {
+    const mediaElement = mediaRef.current;
+    if (mediaElement) {
+      mediaElement.pause();
+    }
+  };
+
+  const renderStoryContent = (story, index) => {
+    switch (story.type) {
+      case 'image':
+        return (
+          <img
+            src={story.url}
+            alt={story.caption}
+            className="media-content"
+          />
+        );
+      case 'video':
+        return (
+          <div className="media-content">
+            <video
+              key={index} // Force re-render when index changes
+              ref={mediaRef}
+              className="media-content"
+              controls
+              playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            >
+              <source src={story.url} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        );
+      case 'audio':
+        return (
+          <div className="audio-container">
+            <h3>{story.caption}</h3>
+            <audio
+              key={index} // Force re-render when index changes
+              ref={mediaRef}
+              controls
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            >
+              <source src={story.url} type="audio/mpeg" />
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   // Add upload button if no stories
@@ -49,117 +184,20 @@ const StorySlider = () => {
     );
   }
 
-  const handleTouchStart = (e) => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
-  const handleTouchMove = (e) => {
-    setTouchEnd(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-
-    if (isLeftSwipe && currentIndex < stories.length - 1) {
-      handleNext();
-    }
-    if (isRightSwipe && currentIndex > 0) {
-      handlePrevious();
-    }
-
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
-
-  const handleNext = () => {
-    if (currentIndex < stories.length - 1 && !isTransitioning) {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentIndex(currentIndex + 1);
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 300);
-      }, 10);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0 && !isTransitioning) {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentIndex(currentIndex - 1);
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 300);
-      }, 10);
-    }
-  };
-
-  const renderStoryContent = (story) => {
-    switch (story.type) {
-      case 'image':
-        return (
-          <img 
-            src={story.url} 
-            alt={story.caption}
-            className="media-content"
-          />
-        );
-      case 'video':
-        return (
-          <div className="media-content">
-            <video
-              className="media-content"
-              controls
-              playsInline
-              poster={story.url}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            >
-              <source src={story.url} type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        );
-      case 'audio':
-        return (
-          <div className="audio-container">
-            <h3>{story.caption}</h3>
-            <audio
-              controls
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            >
-              <source src={story.url} type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div 
+    <div
       className="story-container"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div 
+      <div
         className="story-slide"
         style={{
-          transform: isTransitioning 
-            ? `translateX(${touchEnd && touchStart ? (touchEnd - touchStart) / 5 : 0}px) rotateY(${currentIndex > (touchEnd && touchStart ? currentIndex - 1 : currentIndex) ? '-90deg' : '90deg'})`
-            : 'none'
+          transform: `translateX(${isTransitioning ? (touchEnd && touchStart ? (touchEnd - touchStart) / 5 : 0) : 0}px)`
         }}
       >
-        {renderStoryContent(stories[currentIndex])}
+        {renderStoryContent(stories[currentIndex], currentIndex)}
       </div>
 
       <button
@@ -187,7 +225,7 @@ const StorySlider = () => {
         ))}
       </div>
 
-       <div className="add-more-button">
+      <div className="add-more-button">
         <label htmlFor="file-upload" className="upload-button-small">
           <PlusCircle size={24} />
           <input
@@ -201,9 +239,10 @@ const StorySlider = () => {
         </label>
       </div>
 
-      <div className="caption">
-        {stories[currentIndex].caption}
-      </div>
+        {/* <div className="caption">
+          {stories[currentIndex].caption}
+      </div> */}
+
     </div>
   );
 };
