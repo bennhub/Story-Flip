@@ -27,15 +27,18 @@ body {
   border-radius: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
+  perspective: 1000px; /* Add this line */
+  transform-style: preserve-3d; /* Add this line */
 }
 
 .story-slide {
   width: 100%;
   height: 100%;
-  position: relative;
-  transition: transform 0.3s ease;
-  transform-style: preserve-3d;
-  perspective: 1000px;
+  position: absolute; /* Change to absolute */
+  top: 0;
+  left: 0;
+  backface-visibility: hidden; /* Add this line */
+  transform-style: preserve-3d; /* Add this line */
 }
 
 .media-content {

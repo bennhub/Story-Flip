@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
+import { motion, useAnimation } from 'framer-motion';
 
 const StorySlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -9,6 +10,7 @@ const StorySlider = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [stories, setStories] = useState([]);
   const mediaRef = useRef(null);
+  const controls = useAnimation();
 
   useEffect(() => {
     const currentStory = stories[currentIndex];
@@ -81,29 +83,33 @@ const StorySlider = () => {
     setTouchEnd(null);
   };
 
-  const handleNext = () => {
-    if (currentIndex < stories.length - 1 && !isTransitioning) {
-      pauseCurrentMedia();
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentIndex(currentIndex + 1);
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 300);
-      }, 10);
+  const handleNext = async () => {
+    if (currentIndex < stories.length - 1) {
+      await controls.start(
+        { opacity: 1 }, // Fade out
+        { duration: 0.5 } // Faster fade (0.2 seconds)
+      );
+      setCurrentIndex(currentIndex + 1);
+      controls.set({ opacity: 0 }); // Reset opacity for next slide
+      await controls.start(
+        { opacity: 1 }, // Fade in
+        { duration: 0.5 } // Faster fade (0.2 seconds)
+      );
     }
   };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0 && !isTransitioning) {
-      pauseCurrentMedia();
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentIndex(currentIndex - 1);
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 300);
-      }, 10);
+  
+  const handlePrevious = async () => {
+    if (currentIndex > 0) {
+      await controls.start(
+        { opacity: 1 }, // Fade out
+        { duration: 0.5 } // Faster fade (0.2 seconds)
+      );
+      setCurrentIndex(currentIndex - 1);
+      controls.set({ opacity: 0 }); // Reset opacity for previous slide
+      await controls.start(
+        { opacity: 1 }, // Fade in
+        { duration: 0.5 } // Faster fade (0.2 seconds)
+      );
     }
   };
 
@@ -191,14 +197,15 @@ const StorySlider = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div
+      <motion.div
         className="story-slide"
-        style={{
-          transform: `translateX(${isTransitioning ? (touchEnd && touchStart ? (touchEnd - touchStart) / 5 : 0) : 0}px)`
-        }}
+        animate={controls}
+        initial={{ rotateY: 0, opacity: 1 }}
+        transition={{ type: 'tween', duration: 0.5 }}
+        style={{ perspective: 1000 }} // Add perspective for 3D effect
       >
         {renderStoryContent(stories[currentIndex], currentIndex)}
-      </div>
+      </motion.div>
 
       <button
         onClick={handlePrevious}
@@ -239,10 +246,9 @@ const StorySlider = () => {
         </label>
       </div>
 
-        {/* <div className="caption">
-          {stories[currentIndex].caption}
+      {/* <div className="caption">
+        {stories[currentIndex].caption}
       </div> */}
-
     </div>
   );
 };
