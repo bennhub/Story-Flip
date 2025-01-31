@@ -1,6 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
+
+// Add the CaptionModal component
+const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
+  const [caption, setCaption] = useState('');
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <button className="modal-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+        <h3>Add a Caption</h3>
+        <p className="modal-filename">{fileName}</p>
+        <input
+          type="text"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder="Enter your caption..."
+          className="modal-input"
+          autoFocus
+        />
+        <div className="modal-buttons">
+          <button 
+            className="modal-button cancel" 
+            onClick={onClose}
+          >
+            Skip
+          </button>
+          <button 
+            className="modal-button submit" 
+            onClick={() => onSubmit(caption)}
+          >
+            Add Caption
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const StorySlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -9,13 +50,15 @@ const StorySlider = () => {
   const [touchEnd, setTouchEnd] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [stories, setStories] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [currentFile, setCurrentFile] = useState(null);
+  const [pendingFiles, setPendingFiles] = useState([]);
   const mediaRef = useRef(null);
   const controls = useAnimation();
 
   useEffect(() => {
     const currentStory = stories[currentIndex];
   
-    // Autoplay current story if it's a video or audio
     if (currentStory?.type === 'video' || currentStory?.type === 'audio') {
       const mediaElement = mediaRef.current;
       if (mediaElement) {
@@ -23,17 +66,16 @@ const StorySlider = () => {
       }
     }
   
-    // Preload the next story's media
     if (currentIndex < stories.length - 1) {
       const nextStory = stories[currentIndex + 1];
       if (nextStory) {
         if (nextStory.type === 'image') {
           const img = new Image();
-          img.src = nextStory.url; // Preload the image
+          img.src = nextStory.url;
         } else if (nextStory.type === 'video' || nextStory.type === 'audio') {
           const media = document.createElement(nextStory.type === 'video' ? 'video' : 'audio');
           media.src = nextStory.url;
-          media.preload = 'auto'; // Preload the video or audio
+          media.preload = 'auto';
         }
       }
     }
@@ -44,21 +86,68 @@ const StorySlider = () => {
   
     const newStories = files.map(file => {
       const url = URL.createObjectURL(file);
-      const fileType = file.type.split('/')[0]; // 'image', 'video', or 'audio'
+      const fileType = file.type.split('/')[0];
   
-      // Prompt the user to enter a caption
-      const caption = prompt(`Enter a caption for ${file.name}:`) || file.name;
+      // Ask if user wants to add a caption
+      const wantCaption = window.confirm("Would you like to add a caption? Click OK for yes, Cancel to skip.");
+      
+      let caption;
+      if (wantCaption) {
+        caption = prompt("Let's add a caption!", file.name) || file.name;
+      } else {
+        caption = file.name;
+      }
   
       return {
         type: fileType,
         url: url,
-        caption: caption, // Store the caption
+        caption: caption,
         duration: fileType === 'audio' || fileType === 'video' ? 0 : undefined
       };
     });
   
     setStories(prevStories => [...prevStories, ...newStories]);
   };
+
+  const processNextFile = () => {
+    console.log('Processing next file');
+    console.log('Pending files:', pendingFiles);
+    if (pendingFiles.length === 0) return;
+    
+    const nextFile = pendingFiles[0];
+    console.log('Next file to process:', nextFile);
+    setCurrentFile(nextFile);
+    setModalOpen(true);
+  };
+
+  const handleCaptionSubmit = (caption) => {
+    const file = currentFile;
+    const url = URL.createObjectURL(file);
+    const fileType = file.type.split('/')[0];
+
+    const newStory = {
+      type: fileType,
+      url: url,
+      caption: caption || file.name,
+      duration: fileType === 'audio' || fileType === 'video' ? 0 : undefined
+    };
+
+    setStories(prevStories => [...prevStories, newStory]);
+    
+    // Process next file or clean up
+    const remainingFiles = pendingFiles.slice(1);
+    setPendingFiles(remainingFiles);
+    setModalOpen(false);
+    
+    if (remainingFiles.length > 0) {
+      setTimeout(processNextFile, 100);
+    }
+  };
+
+  const handleModalClose = () => {
+    handleCaptionSubmit(currentFile.name);
+  };
+
   const handleTouchStart = (e) => {
     setTouchStart(e.touches[0].clientX);
   };
@@ -88,14 +177,14 @@ const StorySlider = () => {
   const handleNext = async () => {
     if (currentIndex < stories.length - 1) {
       await controls.start(
-        { opacity: 1 }, // Fade out
-        { duration: 0.5 } // Faster fade (0.2 seconds)
+        { opacity: 1 },
+        { duration: 0.5 }
       );
       setCurrentIndex(currentIndex + 1);
-      controls.set({ opacity: 0 }); // Reset opacity for next slide
+      controls.set({ opacity: 0 });
       await controls.start(
-        { opacity: 1 }, // Fade in
-        { duration: 0.5 } // Faster fade (0.2 seconds)
+        { opacity: 1 },
+        { duration: 0.5 }
       );
     }
   };
@@ -103,22 +192,15 @@ const StorySlider = () => {
   const handlePrevious = async () => {
     if (currentIndex > 0) {
       await controls.start(
-        { opacity: 1 }, // Fade out
-        { duration: 0.5 } // Faster fade (0.2 seconds)
+        { opacity: 1 },
+        { duration: 0.5 }
       );
       setCurrentIndex(currentIndex - 1);
-      controls.set({ opacity: 0 }); // Reset opacity for previous slide
+      controls.set({ opacity: 0 });
       await controls.start(
-        { opacity: 1 }, // Fade in
-        { duration: 0.5 } // Faster fade (0.2 seconds)
+        { opacity: 1 },
+        { duration: 0.5 }
       );
-    }
-  };
-
-  const pauseCurrentMedia = () => {
-    const mediaElement = mediaRef.current;
-    if (mediaElement) {
-      mediaElement.pause();
     }
   };
 
@@ -131,8 +213,9 @@ const StorySlider = () => {
               src={story.url}
               alt={story.caption}
               className="media-content"
+              style={{ objectFit: 'contain' }}
             />
-            <div className="caption">{story.caption}</div> {/* Display caption */}
+            <div className="caption">{story.caption}</div>
           </div>
         );
       case 'video':
@@ -144,19 +227,20 @@ const StorySlider = () => {
               className="media-content"
               controls
               playsInline
+              style={{ objectFit: 'contain' }}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
             >
               <source src={story.url} type="video/mp4" />
               Your browser does not support the video tag.
             </video>
-            <div className="caption">{story.caption}</div> {/* Display caption */}
+            <div className="caption">{story.caption}</div>
           </div>
         );
       case 'audio':
         return (
           <div className="audio-container">
-            <h3>{story.caption}</h3> {/* Display caption */}
+            <h3>{story.caption}</h3>
             <audio
               key={index}
               ref={mediaRef}
@@ -174,7 +258,6 @@ const StorySlider = () => {
     }
   };
 
-  // Add upload button if no stories
   if (stories.length === 0) {
     return (
       <div className="story-container">
@@ -208,7 +291,7 @@ const StorySlider = () => {
         animate={controls}
         initial={{ rotateY: 0, opacity: 1 }}
         transition={{ type: 'tween', duration: 0.5 }}
-        style={{ perspective: 1000 }} // Add perspective for 3D effect
+        style={{ perspective: 1000 }}
       >
         {renderStoryContent(stories[currentIndex], currentIndex)}
       </motion.div>
@@ -239,10 +322,10 @@ const StorySlider = () => {
       </div>
 
       <div className="add-more-button">
-        <label htmlFor="file-upload" className="upload-button-small">
+        <label htmlFor="file-upload-more" className="upload-button-small">
           <PlusCircle size={24} />
           <input
-            id="file-upload"
+            id="file-upload-more"
             type="file"
             accept="image/*,video/*,audio/*"
             multiple
@@ -252,9 +335,12 @@ const StorySlider = () => {
         </label>
       </div>
 
-      {/* <div className="caption">
-        {stories[currentIndex].caption}
-      </div> */}
+      <CaptionModal
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        onSubmit={handleCaptionSubmit}
+        fileName={currentFile?.name || ''}
+      />
     </div>
   );
 };
