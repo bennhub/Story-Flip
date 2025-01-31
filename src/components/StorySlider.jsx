@@ -213,7 +213,7 @@ const StorySlider = () => {
               src={story.url}
               alt={story.caption}
               className="media-content"
-              style={{ objectFit: 'contain' }}
+
             />
             <div className="caption">{story.caption}</div>
           </div>
@@ -227,7 +227,7 @@ const StorySlider = () => {
               className="media-content"
               controls
               playsInline
-              style={{ objectFit: 'contain' }}
+
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
             >
