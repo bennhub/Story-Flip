@@ -2,7 +2,7 @@
 // IMPORTS
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
@@ -73,13 +73,29 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
 // BOTTOM MENU COMPONENT
 //==============================================
 const BottomMenu = ({ onFileUpload, onSaveSession }) => {
+  const [showDurationPanel, setShowDurationPanel] = useState(false);
+
   return (
     <div className="bottom-menu">
+      {showDurationPanel && (
+        <div className="duration-panel">
+          {/* Duration panel content will go here */}
+        </div>
+      )}
+      
       <div className="bottom-menu-buttons">
+        <button 
+          className="bottom-menu-button"
+          onClick={() => setShowDurationPanel(!showDurationPanel)}
+        >
+          <Clock className="bottom-menu-icon" />
+          <span className="bottom-menu-text">Duration</span>
+        </button>
+
         <div className="bottom-menu-right-group">
           <label className="bottom-menu-button">
             <ImagePlus className="bottom-menu-icon" />
-            <span className="bottom-menu-text"></span>
+            <span className="bottom-menu-text">Photo</span>
             <input
               type="file"
               id="file-upload-bottom"
@@ -92,7 +108,7 @@ const BottomMenu = ({ onFileUpload, onSaveSession }) => {
 
           <button className="bottom-menu-button" onClick={onSaveSession}>
             <Save className="bottom-menu-icon" />
-            <span className="bottom-menu-text"></span>
+            <span className="bottom-menu-text">Export</span>
           </button>
         </div>
       </div>
