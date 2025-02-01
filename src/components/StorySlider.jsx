@@ -76,23 +76,25 @@ const BottomMenu = ({ onFileUpload, onSaveSession }) => {
   return (
     <div className="bottom-menu">
       <div className="bottom-menu-buttons">
-        <label className="bottom-menu-button">
-          <ImagePlus className="bottom-menu-icon" />
-          <span className="bottom-menu-text">Photo</span>
-          <input
-            type="file"
-            id="file-upload-bottom"
-            accept="image/*,video/*,audio/*"
-            multiple
-            onChange={onFileUpload}
-            className="hidden-input"
-          />
-        </label>
+        <div className="bottom-menu-right-group">
+          <label className="bottom-menu-button">
+            <ImagePlus className="bottom-menu-icon" />
+            <span className="bottom-menu-text"></span>
+            <input
+              type="file"
+              id="file-upload-bottom"
+              accept="image/*,video/*,audio/*"
+              multiple
+              onChange={onFileUpload}
+              className="hidden-input"
+            />
+          </label>
 
-        <button className="bottom-menu-button" onClick={onSaveSession}>
-          <Save className="bottom-menu-icon" />
-          <span className="bottom-menu-text">Export</span>
-        </button>
+          <button className="bottom-menu-button" onClick={onSaveSession}>
+            <Save className="bottom-menu-icon" />
+            <span className="bottom-menu-text"></span>
+          </button>
+        </div>
       </div>
     </div>
   );
