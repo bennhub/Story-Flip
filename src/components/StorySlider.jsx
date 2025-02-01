@@ -1,8 +1,15 @@
+//==============================================
+// IMPORTS
+//==============================================
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
+
+//==============================================
+// MODAL COMPONENTS
+//==============================================
 // Progress Modal Component
 const ProgressModal = ({ isOpen, progress, message }) => {
   if (!isOpen) return null;
@@ -27,7 +34,7 @@ const ProgressModal = ({ isOpen, progress, message }) => {
   );
 };
 
-// Caption Modal Component (your existing one)
+// Caption Modal Component
 const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
   const [caption, setCaption] = useState('');
 
@@ -62,26 +69,41 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
   );
 };
 
+//==============================================
+// MAIN STORY SLIDER COMPONENT
+//==============================================
 const StorySlider = () => {
-  // Existing state
+  //--------------------------------------------
+  // State Declarations
+  //--------------------------------------------
+  // Navigation State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+
+  // Media State
   const [isPlaying, setIsPlaying] = useState(false);
   const [stories, setStories] = useState([]);
+
+  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [pendingFiles, setPendingFiles] = useState([]);
 
-  // New state for progress
+  // Progress State
   const [saveProgress, setSaveProgress] = useState(null);
   const [progressMessage, setProgressMessage] = useState('');
   const [showProgress, setShowProgress] = useState(false);
 
+  //--------------------------------------------
+  // Refs and Animations
+  //--------------------------------------------
   const mediaRef = useRef(null);
   const controls = useAnimation();
 
-  // Function to ensure directory exists
+  //--------------------------------------------
+  // File System Handlers
+  //--------------------------------------------
   const ensureDirectory = async () => {
     try {
       await Filesystem.mkdir({
@@ -90,24 +112,28 @@ const StorySlider = () => {
         recursive: true
       });
     } catch (error) {
-      // Directory might already exist, that's okay
       console.log('Directory check:', error);
     }
   };
 
+  //--------------------------------------------
+  // Session Handlers
+  //--------------------------------------------
   const handleSaveSession = async () => {
     setShowProgress(true);
     setProgressMessage('Preparing to export video...');
     setSaveProgress(0);
 
     // TODO: Implement video export functionality here
-
     setTimeout(() => {
       setShowProgress(false);
       alert('Video export functionality will be implemented here.');
     }, 1000);
   };
 
+  //--------------------------------------------
+  // Effect Hooks
+  //--------------------------------------------
   useEffect(() => {
     const currentStory = stories[currentIndex];
   
@@ -133,6 +159,9 @@ const StorySlider = () => {
     }
   }, [currentIndex, stories]);
 
+  //--------------------------------------------
+  // File Upload Handlers
+  //--------------------------------------------
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
   
@@ -140,7 +169,6 @@ const StorySlider = () => {
       const url = URL.createObjectURL(file);
       const fileType = file.type.split('/')[0];
   
-      // Ask if user wants to add a caption
       const wantCaption = window.confirm("Would you like to add a caption? Click OK for yes, Cancel to skip.");
       
       let caption;
@@ -162,16 +190,16 @@ const StorySlider = () => {
   };
 
   const processNextFile = () => {
-    console.log('Processing next file');
-    console.log('Pending files:', pendingFiles);
     if (pendingFiles.length === 0) return;
     
     const nextFile = pendingFiles[0];
-    console.log('Next file to process:', nextFile);
     setCurrentFile(nextFile);
     setModalOpen(true);
   };
 
+  //--------------------------------------------
+  // Caption Handlers
+  //--------------------------------------------
   const handleCaptionSubmit = (caption) => {
     const file = currentFile;
     const url = URL.createObjectURL(file);
@@ -186,7 +214,6 @@ const StorySlider = () => {
 
     setStories(prevStories => [...prevStories, newStory]);
     
-    // Process next file or clean up
     const remainingFiles = pendingFiles.slice(1);
     setPendingFiles(remainingFiles);
     setModalOpen(false);
@@ -200,6 +227,9 @@ const StorySlider = () => {
     handleCaptionSubmit(currentFile.name);
   };
 
+  //--------------------------------------------
+  // Touch Navigation Handlers
+  //--------------------------------------------
   const handleTouchStart = (e) => {
     setTouchStart(e.touches[0].clientX);
   };
@@ -226,6 +256,9 @@ const StorySlider = () => {
     setTouchEnd(null);
   };
 
+  //--------------------------------------------
+  // Navigation Handlers
+  //--------------------------------------------
   const handleNext = async () => {
     if (currentIndex < stories.length - 1) {
       await controls.start(
@@ -256,6 +289,9 @@ const StorySlider = () => {
     }
   };
 
+  //--------------------------------------------
+  // Content Rendering Functions
+  //--------------------------------------------
   const renderStoryContent = (story, index) => {
     switch (story.type) {
       case 'image':
@@ -308,6 +344,9 @@ const StorySlider = () => {
     }
   };
 
+  //==============================================
+  // RENDER
+  //==============================================
   if (stories.length === 0) {
     return (
       <div className="slider-container">
@@ -386,18 +425,18 @@ const StorySlider = () => {
           ))}
         </div>
          
-      <CaptionModal
-        isOpen={modalOpen}
-        onClose={handleModalClose}
-        onSubmit={handleCaptionSubmit}
-        fileName={currentFile?.name || ''}
-      />
+        <CaptionModal
+          isOpen={modalOpen}
+          onClose={handleModalClose}
+          onSubmit={handleCaptionSubmit}
+          fileName={currentFile?.name || ''}
+        />
 
-      <ProgressModal
-        isOpen={showProgress}
-        progress={saveProgress}
-        message={progressMessage}
-      />
+        <ProgressModal
+          isOpen={showProgress}
+          progress={saveProgress}
+          message={progressMessage}
+        />
         <div className="add-more-button">
           <label htmlFor="file-upload-more" className="upload-button-small">
             <PlusCircle size={24} />
