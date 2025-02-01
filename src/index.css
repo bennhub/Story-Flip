@@ -9,7 +9,6 @@ body {
 }
 
 .app-container {
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -408,4 +407,47 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+.bottom-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 16px;
+  z-index: 1000;
+}
+
+.bottom-menu-buttons {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.bottom-menu-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: white;
+  transition: transform 0.2s;
+}
+
+.bottom-menu-button:hover {
+  transform: scale(1.1);
+}
+
+.bottom-menu-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.bottom-menu-text {
+  font-size: 14px;
+}
+
+.hidden-input {
+  display: none;
 }

@@ -2,7 +2,7 @@
 // IMPORTS
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
@@ -64,6 +64,35 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
             Add Caption
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+//==============================================
+// BOTTOM MENU COMPONENT
+//==============================================
+const BottomMenu = ({ onFileUpload, onSaveSession }) => {
+  return (
+    <div className="bottom-menu">
+      <div className="bottom-menu-buttons">
+        <label className="bottom-menu-button">
+          <ImagePlus className="bottom-menu-icon" />
+          <span className="bottom-menu-text">Photo</span>
+          <input
+            type="file"
+            id="file-upload-bottom"
+            accept="image/*,video/*,audio/*"
+            multiple
+            onChange={onFileUpload}
+            className="hidden-input"
+          />
+        </label>
+
+        <button className="bottom-menu-button" onClick={onSaveSession}>
+          <Save className="bottom-menu-icon" />
+          <span className="bottom-menu-text">Export</span>
+        </button>
       </div>
     </div>
   );
@@ -350,12 +379,6 @@ const StorySlider = () => {
   if (stories.length === 0) {
     return (
       <div className="slider-container">
-        <div className="session-controls">
-          <button className="session-button" onClick={handleSaveSession}>
-            <Save size={20} />
-            <span>Export Video</span>
-          </button>
-        </div>
         <div className="story-container">
           <div className="upload-container">
             <label htmlFor="file-upload" className="upload-button">
@@ -372,18 +395,16 @@ const StorySlider = () => {
             </label>
           </div>
         </div>
+        <BottomMenu 
+          onFileUpload={handleFileUpload} 
+          onSaveSession={handleSaveSession}
+        />
       </div>
     );
   }
-
+  
   return (
     <div className="slider-container">
-      <div className="session-controls">
-        <button className="session-button" onClick={handleSaveSession}>
-          <Save size={20} />
-          <span>Export Video</span>
-        </button>
-      </div>
       <div 
         className="story-container"
         onTouchStart={handleTouchStart}
@@ -399,7 +420,7 @@ const StorySlider = () => {
         >
           {renderStoryContent(stories[currentIndex], currentIndex)}
         </motion.div>
-
+  
         <button
           onClick={handlePrevious}
           className="nav-button prev"
@@ -407,7 +428,7 @@ const StorySlider = () => {
         >
           <ChevronLeft />
         </button>
-
+  
         <button
           onClick={handleNext}
           className="nav-button next"
@@ -415,7 +436,7 @@ const StorySlider = () => {
         >
           <ChevronRight />
         </button>
-
+  
         <div className="progress-container">
           {stories.map((_, index) => (
             <div
@@ -431,26 +452,17 @@ const StorySlider = () => {
           onSubmit={handleCaptionSubmit}
           fileName={currentFile?.name || ''}
         />
-
+  
         <ProgressModal
           isOpen={showProgress}
           progress={saveProgress}
           message={progressMessage}
         />
-        <div className="add-more-button">
-          <label htmlFor="file-upload-more" className="upload-button-small">
-            <PlusCircle size={24} />
-            <input
-              id="file-upload-more"
-              type="file"
-              accept="image/*,video/*,audio/*"
-              multiple
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-          </label>
-        </div>
       </div>
+      <BottomMenu 
+        onFileUpload={handleFileUpload} 
+        onSaveSession={handleSaveSession}
+      />
     </div>
   );
 };
