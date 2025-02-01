@@ -2,15 +2,13 @@
 // IMPORTS
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-
 
 //==============================================
 // MODAL COMPONENTS
 //==============================================
-// Progress Modal Component
 const ProgressModal = ({ isOpen, progress, message }) => {
   if (!isOpen) return null;
 
@@ -34,7 +32,6 @@ const ProgressModal = ({ isOpen, progress, message }) => {
   );
 };
 
-// Caption Modal Component
 const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
   const [caption, setCaption] = useState('');
 
@@ -72,14 +69,33 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
 //==============================================
 // BOTTOM MENU COMPONENT
 //==============================================
-const BottomMenu = ({ onFileUpload, onSaveSession }) => {
+const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, duration, onDurationChange }) => {
   const [showDurationPanel, setShowDurationPanel] = useState(false);
 
   return (
     <div className="bottom-menu">
       {showDurationPanel && (
         <div className="duration-panel">
-          {/* Duration panel content will go here */}
+          <div className="duration-controls">
+            <input 
+              type="range"
+              min="1"
+              max="12"
+              value={duration}
+              onChange={(e) => onDurationChange(parseInt(e.target.value))}
+              className="duration-slider"
+            />
+            <div className="duration-text">
+              Speed: {duration}s/image
+            </div>
+          </div>
+          <div className="duration-timeline">
+            {[...Array(12)].map((_, index) => (
+              <div key={index} className="timeline-marker">
+                {index + 1}
+              </div>
+            ))}
+          </div>
         </div>
       )}
       
@@ -89,13 +105,25 @@ const BottomMenu = ({ onFileUpload, onSaveSession }) => {
           onClick={() => setShowDurationPanel(!showDurationPanel)}
         >
           <Clock className="bottom-menu-icon" />
-          <span className="bottom-menu-text">Duration</span>
+          <span className="bottom-menu-text"></span>
+        </button>
+
+        <button 
+          className="bottom-menu-button"
+          onClick={onPlayPause}
+        >
+          {isPlaying ? (
+            <Pause className="bottom-menu-icon" />
+          ) : (
+            <Play className="bottom-menu-icon" />
+          )}
+          <span className="bottom-menu-text">{isPlaying ? 'Pause' : 'Play'}</span>
         </button>
 
         <div className="bottom-menu-right-group">
           <label className="bottom-menu-button">
             <ImagePlus className="bottom-menu-icon" />
-            <span className="bottom-menu-text">Photo</span>
+            <span className="bottom-menu-text"></span>
             <input
               type="file"
               id="file-upload-bottom"
@@ -108,7 +136,7 @@ const BottomMenu = ({ onFileUpload, onSaveSession }) => {
 
           <button className="bottom-menu-button" onClick={onSaveSession}>
             <Save className="bottom-menu-icon" />
-            <span className="bottom-menu-text">Export</span>
+            <span className="bottom-menu-text"></span>
           </button>
         </div>
       </div>
@@ -123,30 +151,68 @@ const StorySlider = () => {
   //--------------------------------------------
   // State Declarations
   //--------------------------------------------
-  // Navigation State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-
-  // Media State
   const [isPlaying, setIsPlaying] = useState(false);
   const [stories, setStories] = useState([]);
-
-  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [pendingFiles, setPendingFiles] = useState([]);
-
-  // Progress State
   const [saveProgress, setSaveProgress] = useState(null);
   const [progressMessage, setProgressMessage] = useState('');
   const [showProgress, setShowProgress] = useState(false);
+  const [duration, setDuration] = useState(2); // Default duration
+
+  // Refs and Animations
+  const mediaRef = useRef(null);
+  const intervalRef = useRef(null);
+  const controls = useAnimation();
 
   //--------------------------------------------
-  // Refs and Animations
+  // Auto-Rotation Logic
   //--------------------------------------------
-  const mediaRef = useRef(null);
-  const controls = useAnimation();
+  const startAutoRotation = () => {
+    intervalRef.current = setInterval(() => {
+      setCurrentIndex((prevIndex) => {
+        if (prevIndex < stories.length - 1) {
+          return prevIndex + 1;
+        } else {
+          clearInterval(intervalRef.current); // Stop at the end
+          setIsPlaying(false); // Pause when done
+          return 0; // Optionally loop back to the start
+        }
+      });
+    }, duration * 1000); // Convert seconds to milliseconds
+  };
+
+  const stopAutoRotation = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      stopAutoRotation();
+    } else {
+      startAutoRotation();
+    }
+    setIsPlaying((prev) => !prev);
+  };
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => stopAutoRotation();
+  }, []);
+
+  // Sync duration with auto-rotation
+  useEffect(() => {
+    if (isPlaying) {
+      stopAutoRotation();
+      startAutoRotation();
+    }
+  }, [duration]);
 
   //--------------------------------------------
   // File System Handlers
@@ -340,15 +406,16 @@ const StorySlider = () => {
   // Content Rendering Functions
   //--------------------------------------------
   const renderStoryContent = (story, index) => {
+    if (!story || !story.type) {
+      console.warn("Skipping rendering: story is undefined or missing type", story);
+      return null;
+    }
+  
     switch (story.type) {
       case 'image':
         return (
           <div className="media-content">
-            <img
-              src={story.url}
-              alt={story.caption}
-              className="media-content"
-            />
+            <img src={story.url} alt={story.caption || "Image"} className="media-content" />
             <div className="caption">{story.caption}</div>
           </div>
         );
@@ -387,40 +454,13 @@ const StorySlider = () => {
           </div>
         );
       default:
-        return null;
+        return <p>Unsupported content type</p>;
     }
   };
 
-  //==============================================
-  // RENDER
-  //==============================================
-  if (stories.length === 0) {
-    return (
-      <div className="slider-container">
-        <div className="story-container">
-          <div className="upload-container">
-            <label htmlFor="file-upload" className="upload-button">
-              <PlusCircle size={48} />
-              <span>Upload Media</span>
-              <input
-                id="file-upload"
-                type="file"
-                accept="image/*,video/*,audio/*"
-                multiple
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-              />
-            </label>
-          </div>
-        </div>
-        <BottomMenu 
-          onFileUpload={handleFileUpload} 
-          onSaveSession={handleSaveSession}
-        />
-      </div>
-    );
-  }
-  
+  //--------------------------------------------
+  // Render
+  //--------------------------------------------
   return (
     <div className="slider-container">
       <div 
@@ -438,7 +478,7 @@ const StorySlider = () => {
         >
           {renderStoryContent(stories[currentIndex], currentIndex)}
         </motion.div>
-  
+
         <button
           onClick={handlePrevious}
           className="nav-button prev"
@@ -446,7 +486,7 @@ const StorySlider = () => {
         >
           <ChevronLeft />
         </button>
-  
+
         <button
           onClick={handleNext}
           className="nav-button next"
@@ -454,7 +494,7 @@ const StorySlider = () => {
         >
           <ChevronRight />
         </button>
-  
+
         <div className="progress-container">
           {stories.map((_, index) => (
             <div
@@ -463,23 +503,28 @@ const StorySlider = () => {
             />
           ))}
         </div>
-         
+
         <CaptionModal
           isOpen={modalOpen}
           onClose={handleModalClose}
           onSubmit={handleCaptionSubmit}
           fileName={currentFile?.name || ''}
         />
-  
+
         <ProgressModal
           isOpen={showProgress}
           progress={saveProgress}
           message={progressMessage}
         />
       </div>
+
       <BottomMenu 
         onFileUpload={handleFileUpload} 
         onSaveSession={handleSaveSession}
+        onPlayPause={handlePlayPause}
+        isPlaying={isPlaying}
+        duration={duration}
+        onDurationChange={setDuration}
       />
     </div>
   );
