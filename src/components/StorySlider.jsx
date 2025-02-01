@@ -195,8 +195,14 @@ const StorySlider = () => {
   const handlePlayPause = () => {
     if (isPlaying) {
       stopAutoRotation();
+      if (mediaRef.current) {
+        mediaRef.current.pause(); // Pause the media element
+      }
     } else {
       startAutoRotation();
+      if (mediaRef.current) {
+        mediaRef.current.play(); // Play the media element
+      }
     }
     setIsPlaying((prev) => !prev);
   };
@@ -253,7 +259,11 @@ const StorySlider = () => {
     if (currentStory?.type === 'video' || currentStory?.type === 'audio') {
       const mediaElement = mediaRef.current;
       if (mediaElement) {
-        mediaElement.play().catch(err => console.log('Autoplay prevented:', err));
+        if (isPlaying) {
+          mediaElement.play().catch(err => console.log('Autoplay prevented:', err));
+        } else {
+          mediaElement.pause(); // Ensure media is paused on load
+        }
       }
     }
   
@@ -270,7 +280,7 @@ const StorySlider = () => {
         }
       }
     }
-  }, [currentIndex, stories]);
+  }, [currentIndex, stories, isPlaying]);
 
   //--------------------------------------------
   // File Upload Handlers
