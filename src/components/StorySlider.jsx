@@ -3,8 +3,9 @@
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit } from 'lucide-react';
-import { motion, useAnimation } from 'framer-motion';
+import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+
 
 //==============================================
 // MODAL COMPONENTS
@@ -373,10 +374,10 @@ const StorySlider = () => {
         } else {
           clearInterval(intervalRef.current); // Stop at the end
           setIsPlaying(false); // Pause when done
-          return 0; // Optionally loop back to the start
+          return 0; // Return to first slide
         }
       });
-    }, duration * 1000); // Convert seconds to milliseconds
+    }, duration * 1000);
   };
 
   const stopAutoRotation = () => {
@@ -708,15 +709,19 @@ const StorySlider = () => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <motion.div
-          className="story-slide"
-          animate={controls}
-          initial={{ rotateY: 0, opacity: 1 }}
-          transition={{ type: 'tween', duration: 0.5 }}
-          style={{ perspective: 1000 }}
-        >
-          {renderStoryContent(stories[currentIndex], currentIndex)}
-        </motion.div>
+      
+      <motion.div
+        className="story-slide"
+        key={currentIndex}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        style={{ perspective: 1000 }}
+      >
+    {renderStoryContent(stories[currentIndex], currentIndex)}
+    </motion.div>
+ 
 
         <button
           onClick={handlePrevious}
