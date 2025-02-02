@@ -5,7 +5,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit } from 'lucide-react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
+//==============================================
+// UTILITIES / SERVICES
+//==============================================
+const ffmpeg = new FFmpeg({
+  log: true,
+});
 
 //==============================================
 // MODAL COMPONENTS
@@ -325,6 +333,9 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
 // MAIN STORY SLIDER COMPONENT
 //==============================================
 const StorySlider = () => {
+  useEffect(() => {
+    loadFFmpeg().catch(console.error);
+  }, []);
   //--------------------------------------------
   // State Declarations
   //--------------------------------------------
@@ -456,20 +467,186 @@ const StorySlider = () => {
   };
 
   //--------------------------------------------
-  // Session Handlers
-  //--------------------------------------------
-  const handleSaveSession = async () => {
+// FFmpeg Load Function
+//--------------------------------------------
+const loadFFmpeg = async () => {
+  try {
+    console.log('Starting FFmpeg load...');
+    // Remove the progress callback from the load options
+    await ffmpeg.load({
+      log: true
+    });
+    console.log('FFmpeg load completed');
+    return true;
+  } catch (error) {
+    console.error('Failed to load FFmpeg:', error);
+    throw new Error(`Failed to load FFmpeg: ${error.message}`);
+  }
+};
+
+//--------------------------------------------
+// Session Handlers
+//--------------------------------------------
+const handleSaveSession = async () => {
+  try {
     setShowProgress(true);
     setProgressMessage('Preparing to export video...');
     setSaveProgress(0);
 
-    // TODO: Implement video export functionality here
-    setTimeout(() => {
-      setShowProgress(false);
-      alert('Video export functionality will be implemented here.');
-    }, 1000);
-  };
+    console.log('Starting FFmpeg load check...');
+    if (!ffmpeg.loaded) {
+      console.log('Loading FFmpeg...');
+      await loadFFmpeg();
+    }
+    console.log('FFmpeg ready');
 
+    // Capture each story as an image or video frame
+    console.log('Starting frame capture...');
+    const frames = [];
+    for (let i = 0; i < stories.length; i++) {
+      const story = stories[i];
+      console.log(`Processing story ${i + 1}/${stories.length}, type: ${story.type}`);
+      
+      if (story.type === 'image') {
+        try {
+          const canvas = document.createElement('canvas');
+          const img = new Image();
+          img.crossOrigin = "anonymous";  // Add this line
+          img.src = story.url;
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              try {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob((blob) => {
+                  if (blob) {
+                    frames.push(blob);
+                    resolve();
+                  } else {
+                    reject(new Error('Failed to create blob'));
+                  }
+                }, 'image/png');
+              } catch (e) {
+                reject(e);
+              }
+            };
+            img.onerror = () => reject(new Error('Image failed to load'));
+          });
+        } catch (error) {
+          console.error(`Error processing image ${i}:`, error);
+          throw error;
+        }
+      } else if (story.type === 'video') {
+        try {
+          const video = document.createElement('video');
+          video.src = story.url;
+          await new Promise((resolve, reject) => {
+            video.onloadeddata = () => {
+              try {
+                video.currentTime = story.startTime || 0;
+                video.onseeked = () => {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+                  const ctx = canvas.getContext('2d');
+                  ctx.drawImage(video, 0, 0);
+                  canvas.toBlob((blob) => {
+                    if (blob) {
+                      frames.push(blob);
+                      resolve();
+                    } else {
+                      reject(new Error('Failed to create blob'));
+                    }
+                  }, 'image/png');
+                };
+              } catch (e) {
+                reject(e);
+              }
+            };
+            video.onerror = () => reject(new Error('Video failed to load'));
+          });
+        } catch (error) {
+          console.error(`Error processing video ${i}:`, error);
+          throw error;
+        }
+      }
+      setSaveProgress(((i + 1) / stories.length) * 50); // Using first 50% for frame capture
+      console.log(`Frame ${i + 1} captured`);
+    }
+
+    console.log('All frames captured, total frames:', frames.length);
+    setProgressMessage('Writing frames to FFmpeg...');
+
+    // Write frames to FFmpeg
+    try {
+      console.log('Writing first frame...');
+      await ffmpeg.writeFile('frame001.png', await fetchFile(frames[0]));
+      
+      for (let i = 1; i < frames.length; i++) {
+        const frameFileName = `frame${String(i + 1).padStart(3, '0')}.png`;
+        console.log(`Writing frame ${frameFileName}...`);
+        await ffmpeg.writeFile(frameFileName, await fetchFile(frames[i]));
+        setSaveProgress(50 + ((i + 1) / frames.length) * 25); // 50-75% progress
+      }
+    } catch (error) {
+      console.error('Error writing frames:', error);
+      throw error;
+    }
+
+    // Run FFmpeg command
+    console.log('Starting FFmpeg processing...');
+    setProgressMessage('Creating video...');
+    try {
+      await ffmpeg.exec([
+        '-framerate', '1/2',
+        '-i', 'frame%03d.png',
+        '-c:v', 'libx264',
+        '-r', '30',
+        '-pix_fmt', 'yuv420p',
+        'output.mp4'
+      ]);
+      console.log('FFmpeg processing complete');
+    } catch (error) {
+      console.error('Error during FFmpeg processing:', error);
+      throw error;
+    }
+
+    setSaveProgress(90);
+    setProgressMessage('Preparing download...');
+
+    // Read and download the file
+    try {
+      console.log('Reading output file...');
+      const data = await ffmpeg.readFile('output.mp4');
+      const videoUrl = URL.createObjectURL(
+        new Blob([data.buffer], { type: 'video/mp4' })
+      );
+
+      const a = document.createElement('a');
+      a.href = videoUrl;
+      a.download = 'output.mp4';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(videoUrl);
+
+      console.log('Download complete');
+    } catch (error) {
+      console.error('Error during file download:', error);
+      throw error;
+    }
+
+    setShowProgress(false);
+    alert('Video exported successfully!');
+
+  } catch (error) {
+    console.error('Export failed:', error);
+    setShowProgress(false);
+    alert(`Error exporting video: ${error.message}`);
+  }
+};
   //--------------------------------------------
   // Effect Hooks
   //--------------------------------------------
