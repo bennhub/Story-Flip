@@ -413,6 +413,32 @@ const StorySlider = () => {
     }
   }, [duration]);
 
+  // update media start times
+  useEffect(() => {
+    const currentStory = stories[currentIndex];
+    if ((currentStory?.type === 'video' || currentStory?.type === 'audio') && mediaRef.current) {
+      // Set start time when media is loaded
+      const handleLoaded = () => {
+        if (currentStory.startTime) {
+          mediaRef.current.currentTime = currentStory.startTime;
+        }
+      };
+      
+      mediaRef.current.addEventListener('loadedmetadata', handleLoaded);
+      
+      // If media is already loaded, set the start time immediately
+      if (mediaRef.current.readyState >= 2 && currentStory.startTime) {
+        mediaRef.current.currentTime = currentStory.startTime;
+      }
+  
+      return () => {
+        if (mediaRef.current) {
+          mediaRef.current.removeEventListener('loadedmetadata', handleLoaded);
+        }
+      };
+    }
+  }, [currentIndex, stories]);
+
   //--------------------------------------------
   // File System Handlers
   //--------------------------------------------
@@ -622,29 +648,29 @@ const StorySlider = () => {
             <div className="caption">{story.caption}</div>
           </div>
         );
-        case 'video':
-          return (
-            <div className="media-content">
-              <video
-                key={index}
-                ref={mediaRef}
-                className="media-content"
-                controls
-                playsInline
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onLoadedMetadata={() => {
-                  if (mediaRef.current && story.startTime) {
-                    mediaRef.current.currentTime = story.startTime;
-                  }
-                }}
-              >
-                <source src={story.url} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-              <div className="caption">{story.caption}</div>
-            </div>
-          );
+      case 'video':
+        return (
+          <div className="media-content">
+            <video
+              key={index}
+              ref={mediaRef}
+              className="media-content"
+              controls
+              playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onLoadedMetadata={() => {
+                if (mediaRef.current && story.startTime) {
+                  mediaRef.current.currentTime = story.startTime;
+                }
+              }}
+            >
+              <source src={story.url} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            <div className="caption">{story.caption}</div>
+          </div>
+        );
       case 'audio':
         return (
           <div className="audio-container">
@@ -655,6 +681,11 @@ const StorySlider = () => {
               controls
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
+              onLoadedMetadata={() => {
+                if (mediaRef.current && story.startTime) {
+                  mediaRef.current.currentTime = story.startTime;
+                }
+              }}
             >
               <source src={story.url} type="audio/mpeg" />
               Your browser does not support the audio element.
