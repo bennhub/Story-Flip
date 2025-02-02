@@ -703,64 +703,81 @@ const StorySlider = () => {
   //--------------------------------------------
   return (
     <div className="slider-container">
-      <div 
-        className="story-container"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-      
-      <motion.div
-        className="story-slide"
-        key={currentIndex}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        style={{ perspective: 1000 }}
-      >
-    {renderStoryContent(stories[currentIndex], currentIndex)}
-    </motion.div>
- 
-
-        <button
-          onClick={handlePrevious}
-          className="nav-button prev"
-          disabled={currentIndex === 0}
-        >
-          <ChevronLeft />
-        </button>
-
-        <button
-          onClick={handleNext}
-          className="nav-button next"
-          disabled={currentIndex === stories.length - 1}
-        >
-          <ChevronRight />
-        </button>
-
-        <div className="progress-container">
-          {stories.map((_, index) => (
-            <div
-              key={index}
-              className={`progress-bar ${index === currentIndex ? 'active' : ''}`}
+      {stories.length === 0 ? (
+        // Empty state with add content button
+        <div className="empty-state">
+          <label htmlFor="file-upload" className="file-upload-label">
+            <PlusCircle size={48} />
+            <span>Add Content</span>
+            <input
+              type="file"
+              id="file-upload"
+              accept="image/*,video/*,audio/*"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden-input"
             />
-          ))}
+          </label>
         </div>
+      ) : (
+        // Your existing slider content
+        <div 
+          className="story-container"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <motion.div
+            className="story-slide"
+            key={currentIndex}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ perspective: 1000 }}
+          >
+            {renderStoryContent(stories[currentIndex], currentIndex)}
+          </motion.div>
 
-        <CaptionModal
-          isOpen={modalOpen}
-          onClose={handleModalClose}
-          onSubmit={handleCaptionSubmit}
-          fileName={currentFile?.name || ''}
-        />
+          <button
+            onClick={handlePrevious}
+            className="nav-button prev"
+            disabled={currentIndex === 0}
+          >
+            <ChevronLeft />
+          </button>
 
-        <ProgressModal
-          isOpen={showProgress}
-          progress={saveProgress}
-          message={progressMessage}
-        />
-      </div>
+          <button
+            onClick={handleNext}
+            className="nav-button next"
+            disabled={currentIndex === stories.length - 1}
+          >
+            <ChevronRight />
+          </button>
+
+          <div className="progress-container">
+            {stories.map((_, index) => (
+              <div
+                key={index}
+                className={`progress-bar ${index === currentIndex ? 'active' : ''}`}
+              />
+            ))}
+          </div>
+
+          <CaptionModal
+            isOpen={modalOpen}
+            onClose={handleModalClose}
+            onSubmit={handleCaptionSubmit}
+            fileName={currentFile?.name || ''}
+          />
+
+          <ProgressModal
+            isOpen={showProgress}
+            progress={saveProgress}
+            message={progressMessage}
+          />
+        </div>
+      )}
 
       <BottomMenu 
         onFileUpload={handleFileUpload} 
@@ -784,14 +801,15 @@ const StorySlider = () => {
       )}
 
       {showStartPointModal && (
-         <StartPointModal
-         onClose={() => {
-           setShowStartPointModal(false);
-           setSelectedStory(null);
-         }}
-         onSave={handleStartPointSave}
-         story={selectedStory}
-       />
+        <StartPointModal
+          isOpen={true}
+          onClose={() => {
+            setShowStartPointModal(false);
+            setSelectedStory(null);
+          }}
+          onSave={handleStartPointSave}
+          story={selectedStory}
+        />
       )}
     </div>
   );
