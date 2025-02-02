@@ -493,158 +493,154 @@ const handleSaveSession = async () => {
     setProgressMessage('Preparing to export video...');
     setSaveProgress(0);
 
-    console.log('Starting FFmpeg load check...');
     if (!ffmpeg.loaded) {
-      console.log('Loading FFmpeg...');
       await loadFFmpeg();
     }
-    console.log('FFmpeg ready');
 
-    // Capture each story as an image or video frame
-    console.log('Starting frame capture...');
-    const frames = [];
+    console.log('Processing media files...');
+    const processedFiles = [];
+
+    // Process each media file
     for (let i = 0; i < stories.length; i++) {
-      const story = stories[i];
-      console.log(`Processing story ${i + 1}/${stories.length}, type: ${story.type}`);
-      
-      if (story.type === 'image') {
-        try {
-          const canvas = document.createElement('canvas');
-          const img = new Image();
-          img.crossOrigin = "anonymous";  // Add this line
-          img.src = story.url;
-          await new Promise((resolve, reject) => {
-            img.onload = () => {
-              try {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                canvas.toBlob((blob) => {
-                  if (blob) {
-                    frames.push(blob);
-                    resolve();
-                  } else {
-                    reject(new Error('Failed to create blob'));
-                  }
-                }, 'image/png');
-              } catch (e) {
-                reject(e);
-              }
-            };
-            img.onerror = () => reject(new Error('Image failed to load'));
+      try {
+        const story = stories[i];
+        console.log(`Starting to process story ${i}:`, story.type);
+
+        if (story.type === 'video') {
+          setProgressMessage(`Processing video ${i + 1}/${stories.length}`);
+          const inputName = `input${i}.mp4`;
+          const outputName = `processed${i}.mp4`;
+          
+          await ffmpeg.writeFile(inputName, await fetchFile(story.url));
+          
+          // Fixed video processing to maintain proper speed and audio
+          await ffmpeg.exec([
+            '-i', inputName,
+            '-ss', `${story.startTime || 0}`,
+            '-t', `${duration}`,
+            '-c:v', 'libx264',
+            '-c:a', 'aac',
+            '-strict', 'experimental',
+            '-r', '30',  // Force 30fps
+            '-preset', 'ultrafast',  // Faster encoding
+            '-tune', 'film',  // Better quality for video content
+            outputName
+          ]);
+
+          processedFiles.push({
+            name: outputName,
+            type: 'video'
           });
-        } catch (error) {
-          console.error(`Error processing image ${i}:`, error);
-          throw error;
         }
-      } else if (story.type === 'video') {
-        try {
-          const video = document.createElement('video');
-          video.src = story.url;
-          await new Promise((resolve, reject) => {
-            video.onloadeddata = () => {
-              try {
-                video.currentTime = story.startTime || 0;
-                video.onseeked = () => {
-                  const canvas = document.createElement('canvas');
-                  canvas.width = video.videoWidth;
-                  canvas.height = video.videoHeight;
-                  const ctx = canvas.getContext('2d');
-                  ctx.drawImage(video, 0, 0);
-                  canvas.toBlob((blob) => {
-                    if (blob) {
-                      frames.push(blob);
-                      resolve();
-                    } else {
-                      reject(new Error('Failed to create blob'));
-                    }
-                  }, 'image/png');
-                };
-              } catch (e) {
-                reject(e);
-              }
-            };
-            video.onerror = () => reject(new Error('Video failed to load'));
+        else if (story.type === 'image') {
+          setProgressMessage(`Processing image ${i + 1}/${stories.length}`);
+          const inputName = `input${i}.png`;
+          const outputName = `processed${i}.mp4`;
+          
+          await ffmpeg.writeFile(inputName, await fetchFile(story.url));
+          
+          // Improved image to video conversion
+          await ffmpeg.exec([
+            '-loop', '1',
+            '-i', inputName,
+            '-c:v', 'libx264',
+            '-t', `${duration}`,
+            '-pix_fmt', 'yuv420p',
+            '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2',
+            '-r', '30',  // Match video fps
+            '-preset', 'ultrafast',
+            outputName
+          ]);
+
+          processedFiles.push({
+            name: outputName,
+            type: 'video'
           });
-        } catch (error) {
-          console.error(`Error processing video ${i}:`, error);
-          throw error;
         }
+        else if (story.type === 'audio') {
+          setProgressMessage(`Processing audio ${i + 1}/${stories.length}`);
+          const inputName = `input${i}.mp3`;
+          const outputName = `processed${i}.mp4`;
+          
+          await ffmpeg.writeFile(inputName, await fetchFile(story.url));
+          
+          // Improved audio visualization
+          await ffmpeg.exec([
+            '-i', inputName,
+            '-f', 'lavfi',
+            '-i', 'color=c=black:s=1920x1080:r=30',  // Match video fps
+            '-ss', `${story.startTime || 0}`,
+            '-t', `${duration}`,
+            '-shortest',
+            '-c:v', 'libx264',
+            '-c:a', 'aac',
+            '-b:a', '192k',  // Better audio quality
+            '-strict', 'experimental',
+            '-r', '30',
+            '-preset', 'ultrafast',
+            outputName
+          ]);
+
+          processedFiles.push({
+            name: outputName,
+            type: 'video'
+          });
+        }
+        setSaveProgress((i + 1) / stories.length * 50);
+      } catch (error) {
+        console.error(`Error processing story ${i}:`, error);
+        throw error;
       }
-      setSaveProgress(((i + 1) / stories.length) * 50); // Using first 50% for frame capture
-      console.log(`Frame ${i + 1} captured`);
     }
 
-    console.log('All frames captured, total frames:', frames.length);
-    setProgressMessage('Writing frames to FFmpeg...');
-
-    // Write frames to FFmpeg
-    try {
-      console.log('Writing first frame...');
-      await ffmpeg.writeFile('frame001.png', await fetchFile(frames[0]));
+    // Improved concatenation
+    if (processedFiles.length > 0) {
+      console.log('Creating concat file with:', processedFiles);
+      const fileList = processedFiles
+        .map(file => `file '${file.name}'`)
+        .join('\n');
       
-      for (let i = 1; i < frames.length; i++) {
-        const frameFileName = `frame${String(i + 1).padStart(3, '0')}.png`;
-        console.log(`Writing frame ${frameFileName}...`);
-        await ffmpeg.writeFile(frameFileName, await fetchFile(frames[i]));
-        setSaveProgress(50 + ((i + 1) / frames.length) * 25); // 50-75% progress
-      }
-    } catch (error) {
-      console.error('Error writing frames:', error);
-      throw error;
-    }
+      await ffmpeg.writeFile('list.txt', fileList);
 
-    // Run FFmpeg command
-    console.log('Starting FFmpeg processing...');
-    setProgressMessage('Creating video...');
-    try {
+      setProgressMessage('Creating final video...');
+      console.log('Starting concatenation...');
+      
+      // Improved concatenation settings
       await ffmpeg.exec([
-        '-framerate', '1/2',
-        '-i', 'frame%03d.png',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', 'list.txt',
         '-c:v', 'libx264',
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-strict', 'experimental',
         '-r', '30',
-        '-pix_fmt', 'yuv420p',
-        'output.mp4'
+        '-preset', 'ultrafast',
+        '-movflags', '+faststart',
+        'final_output.mp4'
       ]);
-      console.log('FFmpeg processing complete');
-    } catch (error) {
-      console.error('Error during FFmpeg processing:', error);
-      throw error;
-    }
 
-    setSaveProgress(90);
-    setProgressMessage('Preparing download...');
-
-    // Read and download the file
-    try {
-      console.log('Reading output file...');
-      const data = await ffmpeg.readFile('output.mp4');
+      const data = await ffmpeg.readFile('final_output.mp4');
       const videoUrl = URL.createObjectURL(
         new Blob([data.buffer], { type: 'video/mp4' })
       );
 
       const a = document.createElement('a');
       a.href = videoUrl;
-      a.download = 'output.mp4';
+      a.download = 'story_export.mp4';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(videoUrl);
-
-      console.log('Download complete');
-    } catch (error) {
-      console.error('Error during file download:', error);
-      throw error;
     }
 
     setShowProgress(false);
-    alert('Video exported successfully!');
+    alert('Export completed! Check the downloaded file.');
 
   } catch (error) {
     console.error('Export failed:', error);
     setShowProgress(false);
-    alert(`Error exporting video: ${error.message}`);
+    alert(`Error exporting video: ${error.message}\nCheck console for details.`);
   }
 };
   //--------------------------------------------
