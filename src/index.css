@@ -202,6 +202,34 @@ body {
   max-width: 300px;
 }
 
+.playback-controls {
+  margin-bottom: 16px;  /* Adds space between play button and slider */
+  display: flex;
+  align-items: center;
+  gap: 12px;  /* Space between play button and time display */
+}
+
+.modal-content.start-point-modal {
+  max-width: 600px; /* Larger max-width for video content */
+}
+
+/* Preview Video in Start Point Modal */
+.preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Media Preview Container */
+.media-preview {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -216,7 +244,7 @@ body {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(148, 148, 148);
   padding: 24px;
   border-radius: 12px;
   width: 90%;
@@ -276,6 +304,7 @@ body {
 }
 
 .modal-button {
+  margin: 13px;
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 0.9rem;
