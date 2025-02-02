@@ -2,7 +2,7 @@
 // IMPORTS
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
@@ -67,9 +67,49 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
 };
 
 //==============================================
+// EDIT PANEL COMPONENT
+//==============================================
+const EditPanel = ({ stories, onClose, onThumbnailClick }) => {
+  return (
+    <div className="edit-panel">
+      <div className="edit-panel-header">
+        <h3>Edit Media Start Points</h3>
+        <button className="edit-panel-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+      </div>
+      <div className="thumbnails-container">
+        {stories
+          .filter((story) => story.type === 'video' || story.type === 'audio')
+          .map((story, index) => (
+            <div
+              key={index}
+              className="thumbnail"
+              onClick={() => onThumbnailClick(story)}
+            >
+              {story.type === 'video' ? (
+                <div className="video-thumbnail">
+                  <video src={story.url} muted />
+                  <span className="play-icon">▶️</span>
+                </div>
+              ) : (
+                <div className="audio-thumbnail">
+                  <span className="audio-icon">🎵</span>
+                </div>
+              )}
+              <p className="thumbnail-caption">{story.caption}</p>
+              <p className="thumbnail-timestamp">Start: 0:00</p>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+};
+
+//==============================================
 // BOTTOM MENU COMPONENT
 //==============================================
-const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, duration, onDurationChange }) => {
+const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, duration, onDurationChange, onEdit }) => {
   const [showDurationPanel, setShowDurationPanel] = useState(false);
 
   return (
@@ -121,6 +161,14 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
         </button>
 
         <div className="bottom-menu-right-group">
+          <button 
+            className="bottom-menu-button"
+            onClick={onEdit}
+          >
+            <Edit className="bottom-menu-icon" />
+            <span className="bottom-menu-text">Edit</span>
+          </button>
+
           <label className="bottom-menu-button">
             <ImagePlus className="bottom-menu-icon" />
             <span className="bottom-menu-text"></span>
@@ -163,6 +211,7 @@ const StorySlider = () => {
   const [progressMessage, setProgressMessage] = useState('');
   const [showProgress, setShowProgress] = useState(false);
   const [duration, setDuration] = useState(2); // Default duration
+  const [showEditPanel, setShowEditPanel] = useState(false);
 
   // Refs and Animations
   const mediaRef = useRef(null);
@@ -535,7 +584,19 @@ const StorySlider = () => {
         isPlaying={isPlaying}
         duration={duration}
         onDurationChange={setDuration}
+        onEdit={() => setShowEditPanel(true)}
       />
+
+      {showEditPanel && (
+        <EditPanel
+          stories={stories}
+          onClose={() => setShowEditPanel(false)}
+          onThumbnailClick={(story) => {
+            // TODO: Open modal to set start point
+            console.log('Edit thumbnail clicked:', story);
+          }}
+        />
+      )}
     </div>
   );
 };
