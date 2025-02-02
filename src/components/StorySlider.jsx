@@ -65,11 +65,137 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
     </div>
   );
 };
+// Add this new modal component
+const StartPointModal = ({ onClose, onSave, story }) => {
+  const [currentTime, setCurrentTime] = useState(0);
+  const mediaRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    if (mediaRef.current) {
+      mediaRef.current.currentTime = story?.startTime || 0;
+    }
+  }, [story]);
+
+  const handleTimeUpdate = () => {
+    if (mediaRef.current) {
+      setCurrentTime(mediaRef.current.currentTime);
+    }
+  };
+
+  const handleSliderChange = (e) => {
+    const newTime = parseFloat(e.target.value);
+    if (mediaRef.current) {
+      mediaRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (mediaRef.current) {
+      if (isPlaying) {
+        mediaRef.current.pause();
+      } else {
+        mediaRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const formatTime = (timeInSeconds) => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  if (!story) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content start-point-modal">
+        <button className="modal-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+        <h3>Set Start Point</h3>
+        
+        <div className="media-preview">
+          {story.type === 'video' ? (
+            <video
+              ref={mediaRef}
+              src={story.url}
+              onTimeUpdate={handleTimeUpdate}
+              className="preview-video"
+              playsInline
+            />
+          ) : (
+            <div className="audio-preview">
+              <div className="audio-icon">🎵</div>
+              <audio
+                ref={mediaRef}
+                src={story.url}
+                onTimeUpdate={handleTimeUpdate}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="playback-controls">
+          <button 
+            className="play-pause-button"
+            onClick={handlePlayPause}
+          >
+            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          </button>
+          <span className="time-display">{formatTime(currentTime)}</span>
+        </div>
+
+        <div className="slider-container">
+          <input
+            type="range"
+            min="0"
+            max={mediaRef.current?.duration || 100}
+            value={currentTime}
+            onChange={handleSliderChange}
+            className="time-slider"
+            step="0.1"
+          />
+        </div>
+
+        <div className="modal-buttons">
+          <button 
+            className="modal-button reset"
+            onClick={() => {
+              if (mediaRef.current) {
+                mediaRef.current.currentTime = 0;
+                setCurrentTime(0);
+              }
+            }}
+          >
+            Reset
+          </button>
+          <button 
+            className="modal-button save"
+            onClick={() => onSave(currentTime)}
+          >
+            Set Start Point
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 //==============================================
 // EDIT PANEL COMPONENT
 //==============================================
 const EditPanel = ({ stories, onClose, onThumbnailClick }) => {
+  const formatTime = (seconds) => {
+    if (!seconds) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="edit-panel">
       <div className="edit-panel-header">
@@ -98,7 +224,9 @@ const EditPanel = ({ stories, onClose, onThumbnailClick }) => {
                 </div>
               )}
               <p className="thumbnail-caption">{story.caption}</p>
-              <p className="thumbnail-timestamp">Start: 0:00</p>
+              <p className="thumbnail-timestamp">
+                Start: {formatTime(story.startTime)}
+              </p>
             </div>
           ))}
       </div>
@@ -211,12 +339,28 @@ const StorySlider = () => {
   const [progressMessage, setProgressMessage] = useState('');
   const [showProgress, setShowProgress] = useState(false);
   const [duration, setDuration] = useState(2); // Default duration
-  const [showEditPanel, setShowEditPanel] = useState(false);
+  const [showEditPanel, setShowEditPanel] = useState(false); 
+  const [showStartPointModal, setShowStartPointModal] = useState(false);
+  const [selectedStory, setSelectedStory] = useState(null);
 
   // Refs and Animations
   const mediaRef = useRef(null);
   const intervalRef = useRef(null);
   const controls = useAnimation();
+
+  //--------------------------------------------
+  // Start Point Handler
+  //--------------------------------------------
+
+  const handleStartPointSave = (startTime) => {
+    setStories(stories.map(story => 
+      story === selectedStory 
+        ? { ...story, startTime } 
+        : story
+    ));
+    setShowStartPointModal(false);
+    setSelectedStory(null);
+  };
 
   //--------------------------------------------
   // Auto-Rotation Logic
@@ -478,24 +622,29 @@ const StorySlider = () => {
             <div className="caption">{story.caption}</div>
           </div>
         );
-      case 'video':
-        return (
-          <div className="media-content">
-            <video
-              key={index}
-              ref={mediaRef}
-              className="media-content"
-              controls
-              playsInline
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            >
-              <source src={story.url} type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
-            <div className="caption">{story.caption}</div>
-          </div>
-        );
+        case 'video':
+          return (
+            <div className="media-content">
+              <video
+                key={index}
+                ref={mediaRef}
+                className="media-content"
+                controls
+                playsInline
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onLoadedMetadata={() => {
+                  if (mediaRef.current && story.startTime) {
+                    mediaRef.current.currentTime = story.startTime;
+                  }
+                }}
+              >
+                <source src={story.url} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              <div className="caption">{story.caption}</div>
+            </div>
+          );
       case 'audio':
         return (
           <div className="audio-container">
@@ -592,10 +741,21 @@ const StorySlider = () => {
           stories={stories}
           onClose={() => setShowEditPanel(false)}
           onThumbnailClick={(story) => {
-            // TODO: Open modal to set start point
-            console.log('Edit thumbnail clicked:', story);
+            setSelectedStory(story);
+            setShowStartPointModal(true);
           }}
         />
+      )}
+
+      {showStartPointModal && (
+         <StartPointModal
+         onClose={() => {
+           setShowStartPointModal(false);
+           setSelectedStory(null);
+         }}
+         onSave={handleStartPointSave}
+         story={selectedStory}
+       />
       )}
     </div>
   );
