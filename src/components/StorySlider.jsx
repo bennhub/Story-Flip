@@ -17,6 +17,39 @@ const ffmpeg = new FFmpeg({
 });
 
 //==============================================
+// Audio Template
+//==============================================
+
+const createAudioTemplate = (caption) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080;
+  canvas.height = 1920;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Music icon (using emoji as placeholder)
+  ctx.fillStyle = 'white';
+  ctx.font = '120px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('🎵', canvas.width/2, canvas.height/2 - 100);
+
+  // Now Playing text
+  ctx.font = '48px Arial';
+  ctx.fillStyle = '#808080';
+  ctx.fillText('Now Playing', canvas.width/2, canvas.height/2 + 50);
+
+  // Caption/Title
+  ctx.font = 'bold 64px Arial';
+  ctx.fillStyle = 'white';
+  ctx.fillText(caption, canvas.width/2, canvas.height/2 + 150);
+
+  return canvas;
+};
+
+//==============================================
 // MODAL COMPONENTS
 //==============================================
 const ProgressModal = ({ isOpen, progress, message }) => {
@@ -563,55 +596,29 @@ const handleSaveSession = async () => {
           setProgressMessage(`Processing audio ${i + 1}/${stories.length}`);
           const inputName = `input${i}.mp3`;
           const outputName = `processed${i}.mp4`;
-          const screenshotName = `audioscreenshot${i}.png`;
-          
-          // Create a temporary container to render the audio slide
-          const tempContainer = document.createElement('div');
-          tempContainer.className = 'audio-container';
-          tempContainer.style.position = 'fixed';
-          tempContainer.style.left = '-9999px';  // Move off-screen
-          tempContainer.style.top = 0;
-          
-          // Add the audio content
-          tempContainer.innerHTML = `
-            <h3>${story.caption}</h3>
-            <audio controls>
-              <source src="${story.url}" type="audio/mpeg">
-            </audio>
-          `;
-          
-          // Add to document, capture, then remove
-          document.body.appendChild(tempContainer);
-          
-          try {
-            console.log(`Capturing screenshot for audio slide ${i} with caption:`, story.caption);
-            const canvas = await html2canvas(tempContainer);
-            const imageBlob = await new Promise(resolve => canvas.toBlob(resolve));
-            await ffmpeg.writeFile(screenshotName, await fetchFile(imageBlob));
-          } finally {
-            // Clean up
-            document.body.removeChild(tempContainer);
-          }
-          
+          const templateName = `template${i}.png`;
+        
+          // Create template image
+          const canvas = createAudioTemplate(story.caption);
+          const templateBlob = await new Promise(resolve => 
+            canvas.toBlob(resolve, 'image/png')
+          );
+        
+          // Write both files to FFmpeg
+          await ffmpeg.writeFile(templateName, await fetchFile(templateBlob));
           await ffmpeg.writeFile(inputName, await fetchFile(story.url));
-          
-          // Rest of your FFmpeg command remains the same
+        
+          // Combine image and audio
           await ffmpeg.exec([
             '-loop', '1',
-            '-i', screenshotName,
+            '-i', templateName,
             '-i', inputName,
-            '-ss', `${story.startTime || 0}`,
-            '-t', `${duration}`,
-            '-filter_complex', '[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v]',
-            '-map', '[v]',
-            '-map', '1:a',
             '-c:v', 'libx264',
             '-c:a', 'aac',
             '-b:a', '192k',
-            '-pix_fmt', 'yuv420p',
-            '-r', '30',
             '-shortest',
-            '-preset', 'ultrafast',
+            '-t', `${duration}`,
+            '-preset', 'veryfast',
             outputName
           ]);
         
