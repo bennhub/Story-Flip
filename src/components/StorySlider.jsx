@@ -7,6 +7,7 @@ import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import html2canvas from 'html2canvas';
 
 //==============================================
 // UTILITIES / SERVICES
@@ -518,6 +519,7 @@ const handleSaveSession = async () => {
             '-i', inputName,
             '-ss', `${story.startTime || 0}`,
             '-t', `${duration}`,
+            '-vf', 'scale=1080:1920:force_original_aspect_ratio=1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black',
             '-c:v', 'libx264',
             '-c:a', 'aac',
             '-strict', 'experimental',
@@ -546,7 +548,7 @@ const handleSaveSession = async () => {
             '-c:v', 'libx264',
             '-t', `${duration}`,
             '-pix_fmt', 'yuv420p',
-            '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2',
+            '-vf', 'scale=1080:1920:force_original_aspect_ratio=1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black',
             '-r', '30',  // Match video fps
             '-preset', 'ultrafast',
             outputName
@@ -561,26 +563,58 @@ const handleSaveSession = async () => {
           setProgressMessage(`Processing audio ${i + 1}/${stories.length}`);
           const inputName = `input${i}.mp3`;
           const outputName = `processed${i}.mp4`;
+          const screenshotName = `audioscreenshot${i}.png`;
+          
+          // Create a temporary container to render the audio slide
+          const tempContainer = document.createElement('div');
+          tempContainer.className = 'audio-container';
+          tempContainer.style.position = 'fixed';
+          tempContainer.style.left = '-9999px';  // Move off-screen
+          tempContainer.style.top = 0;
+          
+          // Add the audio content
+          tempContainer.innerHTML = `
+            <h3>${story.caption}</h3>
+            <audio controls>
+              <source src="${story.url}" type="audio/mpeg">
+            </audio>
+          `;
+          
+          // Add to document, capture, then remove
+          document.body.appendChild(tempContainer);
+          
+          try {
+            console.log(`Capturing screenshot for audio slide ${i} with caption:`, story.caption);
+            const canvas = await html2canvas(tempContainer);
+            const imageBlob = await new Promise(resolve => canvas.toBlob(resolve));
+            await ffmpeg.writeFile(screenshotName, await fetchFile(imageBlob));
+          } finally {
+            // Clean up
+            document.body.removeChild(tempContainer);
+          }
           
           await ffmpeg.writeFile(inputName, await fetchFile(story.url));
           
-          // Improved audio visualization
+          // Rest of your FFmpeg command remains the same
           await ffmpeg.exec([
+            '-loop', '1',
+            '-i', screenshotName,
             '-i', inputName,
-            '-f', 'lavfi',
-            '-i', 'color=c=black:s=1920x1080:r=30',  // Match video fps
             '-ss', `${story.startTime || 0}`,
             '-t', `${duration}`,
-            '-shortest',
+            '-filter_complex', '[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v]',
+            '-map', '[v]',
+            '-map', '1:a',
             '-c:v', 'libx264',
             '-c:a', 'aac',
-            '-b:a', '192k',  // Better audio quality
-            '-strict', 'experimental',
+            '-b:a', '192k',
+            '-pix_fmt', 'yuv420p',
             '-r', '30',
+            '-shortest',
             '-preset', 'ultrafast',
             outputName
           ]);
-
+        
           processedFiles.push({
             name: outputName,
             type: 'video'
