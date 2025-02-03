@@ -2,7 +2,7 @@
 // IMPORTS
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit, Share, Download } from 'lucide-react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
@@ -20,10 +20,10 @@ const ffmpeg = new FFmpeg({
 // Audio Template
 //==============================================
 
-const createAudioTemplate = (caption) => {
+const createAudioTemplate = (caption, width = 1080, height = 1920) => {
   const canvas = document.createElement('canvas');
-  canvas.width = 1080;
-  canvas.height = 1920;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
 
   // Background
@@ -32,19 +32,19 @@ const createAudioTemplate = (caption) => {
 
   // Music icon (using emoji as placeholder)
   ctx.fillStyle = 'white';
-  ctx.font = '120px Arial';
+  ctx.font = `${height * 0.0625}px Arial`; // Dynamic font size based on height
   ctx.textAlign = 'center';
-  ctx.fillText('🎵', canvas.width/2, canvas.height/2 - 100);
+  ctx.fillText('🎵', canvas.width/2, canvas.height/2 - height * 0.05);
 
   // Now Playing text
-  ctx.font = '48px Arial';
+  ctx.font = `${height * 0.025}px Arial`;
   ctx.fillStyle = '#808080';
-  ctx.fillText('Now Playing', canvas.width/2, canvas.height/2 + 50);
+  ctx.fillText('Now Playing', canvas.width/2, canvas.height/2 + height * 0.026);
 
   // Caption/Title
-  ctx.font = 'bold 64px Arial';
+  ctx.font = `bold ${height * 0.033}px Arial`;
   ctx.fillStyle = 'white';
-  ctx.fillText(caption, canvas.width/2, canvas.height/2 + 150);
+  ctx.fillText(caption, canvas.width/2, canvas.height/2 + height * 0.078);
 
   return canvas;
 };
@@ -104,6 +104,80 @@ const CaptionModal = ({ isOpen, onClose, onSubmit, fileName }) => {
             Add Caption
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// Add this new Export Modal
+const ExportModal = ({ 
+  isOpen, 
+  progress, 
+  message, 
+  onClose,
+  onExport,
+  isExporting 
+}) => {
+  const [resolution, setResolution] = useState('1080x1920');
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content export-modal">
+      <button className="modal-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+        {!isExporting ? (
+          <>
+            <h3 className="modal-title">Export Settings</h3>
+            
+            <div className="resolution-selector">
+              <label>Resolution:</label>
+              <select 
+                value={resolution} 
+                onChange={(e) => setResolution(e.target.value)}
+                className="resolution-select"
+              >
+                <option value="720x1280">720p</option>
+                <option value="1080x1920">1080p</option>
+                <option value="1440x2560">2K</option>
+              </select>
+            </div>
+
+            <div className="export-actions">
+              <button 
+                className="action-button share"
+                onClick={() => {/* Share logic */}}
+              >
+                <Share className="button-icon" />
+                Share
+              </button>
+              
+              <button 
+                className="action-button download"
+                onClick={() => onExport(resolution)}
+              >
+                <Download className="button-icon" />
+                Export
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="loading-container">
+            <h3>Exporting Video</h3>
+            <p>{message}</p>
+            <div className="progress-container">
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="progress-text">{Math.round(progress)}%</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -388,6 +462,8 @@ const StorySlider = () => {
   const [showEditPanel, setShowEditPanel] = useState(false); 
   const [showStartPointModal, setShowStartPointModal] = useState(false);
   const [selectedStory, setSelectedStory] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Refs and Animations
   const mediaRef = useRef(null);
@@ -521,7 +597,8 @@ const loadFFmpeg = async () => {
 //--------------------------------------------
 // Session Handlers
 //--------------------------------------------
-const handleSaveSession = async () => {
+const handleSaveSession = async (resolution = '1080x1920') => { // Added resolution parameter with default
+  setIsExporting(true);
   try {
     setShowProgress(true);
     setProgressMessage('Preparing to export video...');
@@ -533,6 +610,7 @@ const handleSaveSession = async () => {
 
     console.log('Processing media files...');
     const processedFiles = [];
+    const [width, height] = resolution.split('x').map(Number);
 
     // Process each media file
     for (let i = 0; i < stories.length; i++) {
@@ -547,24 +625,24 @@ const handleSaveSession = async () => {
           
           await ffmpeg.writeFile(inputName, await fetchFile(story.url));
           
-          // Fixed video processing to maintain proper speed and audio
+          // Added width and height from resolution
           await ffmpeg.exec([
             '-ss', `${story.startTime || 0}`,
             '-t', `${duration}`,
             '-i', inputName,
-            '-vf', 'scale=1080:1920:force_original_aspect_ratio=1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black',
+            '-vf', `scale=${width}:${height}:force_original_aspect_ratio=1,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`,
             '-c:v', 'libx264',
-            '-preset', 'ultrafast',    // Fastest encoding
-            '-crf', '28',             // Lower quality but faster (range 0-51, lower is better)
-            '-b:v', '2M',             // Limit bitrate
-            '-maxrate', '2.5M',       // Maximum bitrate
-            '-bufsize', '2M',         // Bitrate buffer
+            '-preset', 'ultrafast',
+            '-crf', '28',
+            '-b:v', '2M',
+            '-maxrate', '2.5M',
+            '-bufsize', '2M',
             '-c:a', 'aac',
-            '-ac', '2',               // 2 audio channels
-            '-ar', '44100',           // Lower audio sample rate
-            '-b:a', '128k',           // Lower audio bitrate
+            '-ac', '2',
+            '-ar', '44100',
+            '-b:a', '128k',
             '-movflags', '+faststart',
-            '-r', '30',              
+            '-r', '30',
             outputName
           ]);
 
@@ -580,15 +658,15 @@ const handleSaveSession = async () => {
           
           await ffmpeg.writeFile(inputName, await fetchFile(story.url));
           
-          // Improved image to video conversion
+          // Added width and height from resolution
           await ffmpeg.exec([
             '-loop', '1',
             '-i', inputName,
             '-c:v', 'libx264',
             '-t', `${duration}`,
             '-pix_fmt', 'yuv420p',
-            '-vf', 'scale=1080:1920:force_original_aspect_ratio=1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black',
-            '-r', '30',  // Match video fps
+            '-vf', `scale=${width}:${height}:force_original_aspect_ratio=1,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`,
+            '-r', '30',
             '-preset', 'ultrafast',
             outputName
           ]);
@@ -604,17 +682,16 @@ const handleSaveSession = async () => {
           const outputName = `processed${i}.mp4`;
           const templateName = `template${i}.png`;
         
-          // Create template image
-          const canvas = createAudioTemplate(story.caption);
+          // Create template image with new dimensions
+          const canvas = createAudioTemplate(story.caption, width, height);
           const templateBlob = await new Promise(resolve => 
             canvas.toBlob(resolve, 'image/png')
           );
         
-          // Write both files to FFmpeg
           await ffmpeg.writeFile(templateName, await fetchFile(templateBlob));
           await ffmpeg.writeFile(inputName, await fetchFile(story.url));
         
-          // Combine image and audio
+          // Added width and height considerations
           await ffmpeg.exec([
             '-loop', '1',
             '-i', templateName,
@@ -624,6 +701,7 @@ const handleSaveSession = async () => {
             '-b:a', '192k',
             '-shortest',
             '-t', `${duration}`,
+            '-vf', `scale=${width}:${height}:force_original_aspect_ratio=1,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`,
             '-preset', 'veryfast',
             outputName
           ]);
@@ -633,14 +711,13 @@ const handleSaveSession = async () => {
             type: 'video'
           });
         }
-        setSaveProgress((i + 1) / stories.length * 50);
+        setSaveProgress((i + 1) / stories.length * 75);
       } catch (error) {
         console.error(`Error processing story ${i}:`, error);
         throw error;
       }
     }
 
-    // Improved concatenation
     if (processedFiles.length > 0) {
       console.log('Creating concat file with:', processedFiles);
       const fileList = processedFiles
@@ -648,8 +725,9 @@ const handleSaveSession = async () => {
         .join('\n');
       
       await ffmpeg.writeFile('list.txt', fileList);
-
+    
       setProgressMessage('Creating final video...');
+      setSaveProgress(90);  // Start final phase at 90%
       console.log('Starting concatenation...');
       
       // Improved concatenation settings
@@ -666,27 +744,40 @@ const handleSaveSession = async () => {
         '-movflags', '+faststart',
         'final_output.mp4'
       ]);
-
+    
+      setProgressMessage('Preparing download...');
+      setSaveProgress(95);  // Add this to show progress before download
+    
       const data = await ffmpeg.readFile('final_output.mp4');
+      setSaveProgress(100);  // Set to 100% before creating download
+      setProgressMessage('Download starting...');
+    
       const videoUrl = URL.createObjectURL(
         new Blob([data.buffer], { type: 'video/mp4' })
       );
-
+    
       const a = document.createElement('a');
       a.href = videoUrl;
       a.download = 'story_export.mp4';
       document.body.appendChild(a);
+      
+      // Small delay to ensure progress bar is seen at 100%
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(videoUrl);
     }
 
+    setSaveProgress(100);
     setShowProgress(false);
+    setIsExporting(false); // Added this to reset export state
     alert('Export completed! Check the downloaded file.');
 
   } catch (error) {
     console.error('Export failed:', error);
     setShowProgress(false);
+    setIsExporting(false); // Added this to reset export state on error
     alert(`Error exporting video: ${error.message}\nCheck console for details.`);
   }
 };
@@ -1000,13 +1091,13 @@ const handleSaveSession = async () => {
       )}
 
       <BottomMenu 
-        onFileUpload={handleFileUpload} 
-        onSaveSession={handleSaveSession}
-        onPlayPause={handlePlayPause}
-        isPlaying={isPlaying}
-        duration={duration}
-        onDurationChange={setDuration}
-        onEdit={() => setShowEditPanel(true)}
+      onFileUpload={handleFileUpload} 
+      onSaveSession={() => setShowExportModal(true)}  // Changed this line
+      onPlayPause={handlePlayPause}
+      isPlaying={isPlaying}
+      duration={duration}
+      onDurationChange={setDuration}
+      onEdit={() => setShowEditPanel(true)}
       />
 
       {showEditPanel && (
@@ -1020,18 +1111,26 @@ const handleSaveSession = async () => {
         />
       )}
 
-      {showStartPointModal && (
-        <StartPointModal
-          isOpen={true}
-          onClose={() => {
-            setShowStartPointModal(false);
-            setSelectedStory(null);
-          }}
-          onSave={handleStartPointSave}
-          story={selectedStory}
-        />
-      )}
-    </div>
+{showStartPointModal && (
+      <StartPointModal
+        isOpen={true}
+        onClose={() => {
+          setShowStartPointModal(false);
+          setSelectedStory(null);
+        }}
+        onSave={handleStartPointSave}
+        story={selectedStory}
+      />
+    )}
+    <ExportModal 
+      isOpen={showExportModal}
+      progress={saveProgress}
+      message={progressMessage}
+      onClose={() => setShowExportModal(false)}
+      onExport={handleSaveSession}
+      isExporting={isExporting}
+    />
+  </div>
   );
 };
 
