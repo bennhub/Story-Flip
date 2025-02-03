@@ -549,16 +549,22 @@ const handleSaveSession = async () => {
           
           // Fixed video processing to maintain proper speed and audio
           await ffmpeg.exec([
-            '-i', inputName,
             '-ss', `${story.startTime || 0}`,
             '-t', `${duration}`,
+            '-i', inputName,
             '-vf', 'scale=1080:1920:force_original_aspect_ratio=1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black',
             '-c:v', 'libx264',
+            '-preset', 'ultrafast',    // Fastest encoding
+            '-crf', '28',             // Lower quality but faster (range 0-51, lower is better)
+            '-b:v', '2M',             // Limit bitrate
+            '-maxrate', '2.5M',       // Maximum bitrate
+            '-bufsize', '2M',         // Bitrate buffer
             '-c:a', 'aac',
-            '-strict', 'experimental',
-            '-r', '30',  // Force 30fps
-            '-preset', 'ultrafast',  // Faster encoding
-            '-tune', 'film',  // Better quality for video content
+            '-ac', '2',               // 2 audio channels
+            '-ar', '44100',           // Lower audio sample rate
+            '-b:a', '128k',           // Lower audio bitrate
+            '-movflags', '+faststart',
+            '-r', '30',              
             outputName
           ]);
 
