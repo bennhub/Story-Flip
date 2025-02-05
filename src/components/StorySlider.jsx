@@ -4,16 +4,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit, Share, Download } from 'lucide-react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
-import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import html2canvas from 'html2canvas';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 //==============================================
 // UTILITIES / SERVICES
 //==============================================
 const ffmpeg = new FFmpeg({
   log: true,
+  corePath: Capacitor.isNativePlatform() 
+    ? '/public/ffmpeg/ffmpeg-core.js'
+    : 'https://unpkg.com/@ffmpeg/core@0.12.4/dist/ffmpeg-core.js',
+  wasmPath: Capacitor.isNativePlatform()
+    ? '/public/ffmpeg/ffmpeg-core.wasm'
+    : 'https://unpkg.com/@ffmpeg/core@0.12.4/dist/ffmpeg-core.wasm'
 });
 
 //==============================================
@@ -582,15 +589,27 @@ const StorySlider = () => {
 const loadFFmpeg = async () => {
   try {
     console.log('Starting FFmpeg load...');
-    // Remove the progress callback from the load options
-    await ffmpeg.load({
-      log: true
-    });
-    console.log('FFmpeg load completed');
-    return true;
+    if (Capacitor.isNativePlatform()) {
+      console.log('Loading in mobile environment');
+      
+      // Try using relative path from assets
+      await ffmpeg.load({
+        coreURL: './public/ffmpeg/ffmpeg-core.js',
+        wasmURL: './public/ffmpeg/ffmpeg-core.wasm'
+      });
+    } else {
+      console.log('Loading in web environment');
+      await ffmpeg.load();
+    }
+    console.log('FFmpeg loaded successfully');
   } catch (error) {
-    console.error('Failed to load FFmpeg:', error);
-    throw new Error(`Failed to load FFmpeg: ${error.message}`);
+    console.error('FFmpeg load detailed error:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      cause: error.cause
+    });
+    throw error;
   }
 };
 
@@ -731,6 +750,7 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
       console.log('Starting concatenation...');
       
       // Improved concatenation settings
+      // Improved concatenation settings
       await ffmpeg.exec([
         '-f', 'concat',
         '-safe', '0',
@@ -746,38 +766,52 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
       ]);
     
       setProgressMessage('Preparing download...');
-      setSaveProgress(95);  // Add this to show progress before download
+      setSaveProgress(95);
     
       const data = await ffmpeg.readFile('final_output.mp4');
-      setSaveProgress(100);  // Set to 100% before creating download
+      setSaveProgress(100);
       setProgressMessage('Download starting...');
-    
-      const videoUrl = URL.createObjectURL(
-        new Blob([data.buffer], { type: 'video/mp4' })
-      );
-    
-      const a = document.createElement('a');
-      a.href = videoUrl;
-      a.download = 'story_export.mp4';
-      document.body.appendChild(a);
-      
+
       // Small delay to ensure progress bar is seen at 100%
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(videoUrl);
+      if (Capacitor.isNativePlatform()) {
+        // Mobile download using Filesystem
+        try {
+          const fileName = `story_export_${Date.now()}.mp4`;
+          await Filesystem.writeFile({
+            path: fileName,
+            data: data.buffer,
+            directory: Directory.Documents
+          });
+          alert(`Video saved to Documents folder as ${fileName}`);
+        } catch (e) {
+          console.error('Error saving file:', e);
+          alert('Error saving file: ' + e.message);
+        }
+      } else {
+        // Web download
+        const videoUrl = URL.createObjectURL(
+          new Blob([data.buffer], { type: 'video/mp4' })
+        );
+        const a = document.createElement('a');
+        a.href = videoUrl;
+        a.download = 'story_export.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(videoUrl);
+      }
     }
 
-    setSaveProgress(100);
     setShowProgress(false);
-    setIsExporting(false); // Added this to reset export state
+    setIsExporting(false);
     alert('Export completed! Check the downloaded file.');
 
   } catch (error) {
     console.error('Export failed:', error);
     setShowProgress(false);
-    setIsExporting(false); // Added this to reset export state on error
+    setIsExporting(false);
     alert(`Error exporting video: ${error.message}\nCheck console for details.`);
   }
 };

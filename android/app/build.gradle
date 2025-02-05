@@ -1,8 +1,10 @@
+apply plugin: 'kotlin-android'
 apply plugin: 'com.android.application'
 
 android {
     namespace "com.mystories.app"
     compileSdk rootProject.ext.compileSdkVersion
+
     defaultConfig {
         applicationId "com.mystories.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -10,14 +12,36 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
         aaptOptions {
-             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
-             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    // Ensure this is set to Java 17, not Java 21
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17  // Set to Java 17
+        targetCompatibility JavaVersion.VERSION_17  // Set to Java 17
+    }
+
+    // If you're using Kotlin, ensure JVM target is set to Java 17 as well
+    kotlinOptions {
+        jvmTarget = "17"  // Set JVM target to Java 17
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("/Users/ben/Git Projects/Media-Swiper/my-stories-app/android/app/my-release-key.keystore")  // Use absolute path temporarily
+            storePassword "106051"                                 // Keystore password
+            keyAlias "my-key-alias"                                // Keystore alias
+            keyPassword "106051"                                   // Key password (replace if different)
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release // Reference the signing config here
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -25,7 +49,7 @@ android {
 }
 
 repositories {
-    flatDir{
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
