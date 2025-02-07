@@ -312,12 +312,31 @@ const StartPointModal = ({ onClose, onSave, story }) => {
 //==============================================
 // EDIT PANEL COMPONENT
 //==============================================
-const EditPanel = ({ stories, onClose, onThumbnailClick }) => {
+const EditPanel = ({ stories, onClose, onThumbnailClick, onReorder }) => {
   const formatTime = (seconds) => {
     if (!seconds) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleDragStart = (e, index) => {
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    const dragIndex = Number(e.dataTransfer.getData('text/plain'));
+    if (dragIndex === dropIndex) return;
+
+    const newStories = [...stories];
+    const [movedItem] = newStories.splice(dragIndex, 1);
+    newStories.splice(dropIndex, 0, movedItem);
+    onReorder(newStories);
   };
 
   return (
@@ -334,7 +353,11 @@ const EditPanel = ({ stories, onClose, onThumbnailClick }) => {
           .map((story, index) => (
             <div
               key={index}
-              className="thumbnail"
+              draggable={true}
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, index)}
+              className="thumbnail cursor-move"
               onClick={() => onThumbnailClick(story)}
             >
               {story.type === 'video' ? (
@@ -478,6 +501,28 @@ const StorySlider = () => {
   const controls = useAnimation();
 
   //--------------------------------------------
+  // REORDER CLIPS 
+  //--------------------------------------------
+  const handleReorder = (newStories) => {
+    // Force stop any playback
+    stopAutoRotation();
+    setIsPlaying(false);
+    
+    // Get currently playing video's new position
+    const currentVideo = stories[currentIndex];
+    const newIndex = newStories.findIndex(story => story === currentVideo);
+    
+    // Update state synchronously
+    setCurrentIndex(0); // Reset to first position
+    setStories(newStories);
+    
+    // Force media update
+    if (mediaRef.current) {
+      mediaRef.current.currentTime = newStories[0].startTime || 0;
+      mediaRef.current.load(); // Force media reload
+    }
+  };
+  //--------------------------------------------
   // Start Point Handler
   //--------------------------------------------
 
@@ -583,7 +628,7 @@ const StorySlider = () => {
     }
   };
 
-  //--------------------------------------------
+//--------------------------------------------
 // FFmpeg Load Function
 //--------------------------------------------
 const loadFFmpeg = async () => {
@@ -1142,6 +1187,7 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
             setSelectedStory(story);
             setShowStartPointModal(true);
           }}
+          onReorder={handleReorder}
         />
       )}
 
