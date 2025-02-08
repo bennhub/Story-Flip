@@ -312,75 +312,104 @@ const StartPointModal = ({ onClose, onSave, story }) => {
 //==============================================
 // EDIT PANEL COMPONENT
 //==============================================
-const EditPanel = ({ stories, onClose, onThumbnailClick, onReorder }) => {
+const EditPanel = ({ stories, onClose, onThumbnailClick, onReorder, onDelete }) => {
   const formatTime = (seconds) => {
     if (!seconds) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
+ 
   const handleDragStart = (e, index) => {
     e.dataTransfer.setData('text/plain', String(index));
   };
-
+ 
   const handleDragOver = (e) => {
     e.preventDefault();
   };
-
+ 
   const handleDrop = (e, dropIndex) => {
     e.preventDefault();
     const dragIndex = Number(e.dataTransfer.getData('text/plain'));
     if (dragIndex === dropIndex) return;
-
+ 
     const newStories = [...stories];
     const [movedItem] = newStories.splice(dragIndex, 1);
     newStories.splice(dropIndex, 0, movedItem);
     onReorder(newStories);
   };
-
+ 
   return (
     <div className="edit-panel">
       <div className="edit-panel-header">
-        <h3>Edit Media Start Points</h3>
+        <h3>Edit Media Order</h3>
         <button className="edit-panel-close" onClick={onClose}>
           <X size={20} />
         </button>
       </div>
       <div className="thumbnails-container">
-        {stories
-          .filter((story) => story.type === 'video' || story.type === 'audio')
-          .map((story, index) => (
-            <div
-              key={index}
-              draggable={true}
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, index)}
-              className="thumbnail cursor-move"
-              onClick={() => onThumbnailClick(story)}
-            >
+        {stories.map((story, index) => (
+          <div
+            key={index}
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, index)}
+            className="thumbnail"
+            onClick={() => onThumbnailClick(story)}
+          >
+            <div className="thumbnail-content">
+              <button 
+                className="delete-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(index);
+                }}
+              >
+                <X size={16} />
+              </button>
+ 
+              {(story.type === 'video' || story.type === 'audio') && (
+                <div className="start-time">
+                  {formatTime(story.startTime)}
+                </div>
+              )}
+ 
               {story.type === 'video' ? (
                 <div className="video-thumbnail">
-                  <video src={story.url} muted />
+                  <video 
+                    src={story.url} 
+                    muted 
+                    onLoadedMetadata={(e) => {
+                      if (story.startTime) {
+                        e.target.currentTime = story.startTime;
+                      }
+                    }}
+                  />
                   <span className="play-icon">▶️</span>
                 </div>
-              ) : (
+              ) : story.type === 'audio' ? (
                 <div className="audio-thumbnail">
                   <span className="audio-icon">🎵</span>
                 </div>
+              ) : (
+                <div className="image-thumbnail">
+                  <img src={story.url} alt={story.caption} />
+                </div>
               )}
-              <p className="thumbnail-caption">{story.caption}</p>
-              <p className="thumbnail-timestamp">
-                Start: {formatTime(story.startTime)}
-              </p>
             </div>
-          ))}
+            <div className="thumbnail-caption">
+              {story.caption.length > 20 
+                ? `${story.caption.substring(0, 20)}...` 
+                : story.caption
+              }
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
-};
-
+ };
 //==============================================
 // BOTTOM MENU COMPONENT
 //==============================================
@@ -522,6 +551,19 @@ const StorySlider = () => {
       mediaRef.current.load(); // Force media reload
     }
   };
+
+  //--------------------------------------------
+  // DELETE THUMBNAIL HANDLER
+  //--------------------------------------------
+
+  const handleDelete = (index) => {
+    const newStories = stories.filter((_, i) => i !== index);
+    setStories(newStories);
+    if (currentIndex >= index) {
+      setCurrentIndex(Math.max(0, currentIndex - 1));
+    }
+  };
+  
   //--------------------------------------------
   // Start Point Handler
   //--------------------------------------------
@@ -1188,6 +1230,7 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
             setShowStartPointModal(true);
           }}
           onReorder={handleReorder}
+          onDelete={handleDelete}
         />
       )}
 
