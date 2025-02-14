@@ -3,9 +3,9 @@
 A modern, interactive media slideshow creator built with React. Create engaging presentations by combining images, videos, and audio with customizable transitions, music synchronization, and export capabilities.
 
 
-<img src="src/assets/mainui.jpg" alt="Mobile Screenshot" width="250" style="display: inline-block; margin-right: 10px;"/>
-<img src="src/assets/editClips.jpg" alt="Mobile Screenshot" width="250" style="display: inline-block; margin-right: 10px;"/>
-<img src="src/assets/Export.jpg" alt="Mobile Screenshot" width="250" style="display: inline-block;"/>
+<img src="src/assets/mainui.jpg" alt="Mobile Screenshot" width="200"/>
+<img src="src/assets/editClips.jpg" alt="Mobile Screenshot" width="200"/>
+<img src="src/assets/Export.jpg" alt="Mobile Screenshot" width="200"/>
 
 ## Features
 
