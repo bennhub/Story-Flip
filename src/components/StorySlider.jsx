@@ -2,7 +2,7 @@
 // IMPORTS
 //==============================================
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit, Share, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, X, Save, Loader, ImagePlus, Clock, Play, Pause, Edit, Share, Download, Music } from 'lucide-react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
@@ -54,6 +54,57 @@ const createAudioTemplate = (caption, width = 1080, height = 1920) => {
   ctx.fillText(caption, canvas.width/2, canvas.height/2 + height * 0.078);
 
   return canvas;
+};
+
+//==============================================
+// MUSIC PANEL COMPONENT
+//==============================================
+const MusicPanel = ({ onUpload, onBPMChange, currentBPM }) => {
+  const audioRef = useRef(null);
+
+  return (
+    <div className="music-panel">
+      <div className="music-controls">
+        <div className="music-upload">
+          <label className="upload-button">
+            <Music className="icon" />
+            <span>Upload Music</span>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  const url = URL.createObjectURL(file);
+                  onUpload(url);
+                  if (audioRef.current) {
+                    audioRef.current.src = url;
+                  }
+                }
+              }}
+              className="hidden-input"
+            />
+          </label>
+        </div>
+        
+        <div className="bpm-control">
+          <label>BPM:</label>
+          <input
+            type="number"
+            min="1"
+            max="300"
+            value={currentBPM}
+            onChange={(e) => onBPMChange(parseInt(e.target.value))}
+            className="bpm-input"
+          />
+        </div>
+
+        <div className="music-player">
+          <audio ref={audioRef} controls />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 //==============================================
@@ -413,9 +464,35 @@ const EditPanel = ({ stories, onClose, onThumbnailClick, onReorder, onDelete }) 
 //==============================================
 // BOTTOM MENU COMPONENT
 //==============================================
-const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, duration, onDurationChange, onEdit }) => {
+const BottomMenu = ({ 
+  onFileUpload, 
+  onSaveSession, 
+  onPlayPause, 
+  isPlaying, 
+  duration, 
+  onDurationChange, 
+  onEdit,
+  onMusicUpload,
+  onBPMChange,
+  musicUrl,
+  bpm
+}) => {
   const [showDurationPanel, setShowDurationPanel] = useState(false);
-
+  const [showMusicPanel, setShowMusicPanel] = useState(false);
+  const [currentBPM, setCurrentBPM] = useState(120);
+ 
+  const handleMusicUpload = (url) => {
+    // Handle music upload
+    console.log('Music uploaded:', url);
+  };
+ 
+  const handleBPMChange = (newBPM) => {
+    setCurrentBPM(newBPM);
+    // Calculate slide duration based on BPM
+    const slideDuration = (60 / newBPM) * 4; // 4 beats per slide
+    onDurationChange(slideDuration);
+  };
+ 
   return (
     <div className="bottom-menu">
       {showDurationPanel && (
@@ -443,15 +520,38 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
         </div>
       )}
       
+      {showMusicPanel && (
+        <MusicPanel
+        onUpload={onMusicUpload}
+        onBPMChange={onBPMChange}
+        currentBPM={bpm}  
+        musicUrl={musicUrl}
+        />
+      )}
+      
       <div className="bottom-menu-buttons">
         <button 
           className="bottom-menu-button"
-          onClick={() => setShowDurationPanel(!showDurationPanel)}
+          onClick={() => {
+            setShowDurationPanel(!showDurationPanel);
+            setShowMusicPanel(false);
+          }}
         >
           <Clock className="bottom-menu-icon" />
           <span className="bottom-menu-text"></span>
         </button>
-
+ 
+        <button 
+          className="bottom-menu-button"
+          onClick={() => {
+            setShowMusicPanel(!showMusicPanel);
+            setShowDurationPanel(false);
+          }}
+        >
+          <Music className="bottom-menu-icon" />
+          <span className="bottom-menu-text"></span>
+        </button>
+ 
         <button 
           className="bottom-menu-button"
           onClick={onPlayPause}
@@ -463,7 +563,7 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
           )}
           <span className="bottom-menu-text">{isPlaying ? 'Pause' : 'Play'}</span>
         </button>
-
+ 
         <div className="bottom-menu-right-group">
           <button 
             className="bottom-menu-button"
@@ -472,7 +572,7 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
             <Edit className="bottom-menu-icon" />
             <span className="bottom-menu-text">Edit</span>
           </button>
-
+ 
           <label className="bottom-menu-button">
             <ImagePlus className="bottom-menu-icon" />
             <span className="bottom-menu-text"></span>
@@ -485,7 +585,7 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
               className="hidden-input"
             />
           </label>
-
+ 
           <button className="bottom-menu-button" onClick={onSaveSession}>
             <Save className="bottom-menu-icon" />
             <span className="bottom-menu-text"></span>
@@ -494,7 +594,7 @@ const BottomMenu = ({ onFileUpload, onSaveSession, onPlayPause, isPlaying, durat
       </div>
     </div>
   );
-};
+ };
 
 //==============================================
 // MAIN STORY SLIDER COMPONENT
@@ -523,11 +623,31 @@ const StorySlider = () => {
   const [selectedStory, setSelectedStory] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [musicUrl, setMusicUrl] = useState(null);
+  const [bpm, setBpm] = useState(120);
+  const musicRef = useRef(null);
 
   // Refs and Animations
   const mediaRef = useRef(null);
   const intervalRef = useRef(null);
   const controls = useAnimation();
+
+  //=================================
+  // UPLOAD MUSIC TO PANEL
+  //==================================
+  // Add these handlers
+const handleMusicUpload = (url) => {
+  setMusicUrl(url);
+  if (musicRef.current) {
+    musicRef.current.src = url;
+  }
+};
+
+const handleBPMChange = (newBPM) => {
+  setBpm(newBPM);
+  const slideDuration = (60 / newBPM) * 4;
+  setDuration(slideDuration);
+};
 
   //--------------------------------------------
   // REORDER CLIPS 
@@ -584,13 +704,11 @@ const StorySlider = () => {
   const startAutoRotation = () => {
     intervalRef.current = setInterval(() => {
       setCurrentIndex((prevIndex) => {
-        if (prevIndex < stories.length - 1) {
-          return prevIndex + 1;
-        } else {
-          clearInterval(intervalRef.current); // Stop at the end
-          setIsPlaying(false); // Pause when done
-          return 0; // Return to first slide
+        // If we reach the end, go back to 0 instead of stopping
+        if (prevIndex >= stories.length - 1) {
+          return 0;
         }
+        return prevIndex + 1;
       });
     }, duration * 1000);
   };
@@ -605,12 +723,22 @@ const StorySlider = () => {
     if (isPlaying) {
       stopAutoRotation();
       if (mediaRef.current) {
-        mediaRef.current.pause(); // Pause the media element
+        mediaRef.current.pause();
+      }
+      if (musicRef.current) {
+        musicRef.current.pause();
       }
     } else {
+      // Reset to beginning if at the end before starting
+      if (currentIndex === stories.length - 1) {
+        setCurrentIndex(0);
+      }
       startAutoRotation();
       if (mediaRef.current) {
-        mediaRef.current.play(); // Play the media element
+        mediaRef.current.play();
+      }
+      if (musicRef.current) {
+        musicRef.current.play();
       }
     }
     setIsPlaying((prev) => !prev);
@@ -1134,7 +1262,10 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
   // Render
   //--------------------------------------------
   return (
+    <div className="app-container">
+    <div className="app-content">
     <div className="slider-container">
+      <h1 className="slider-title">Clip & Slide</h1>
       {stories.length === 0 ? (
         // Empty state with add content button
         <div className="empty-state">
@@ -1152,7 +1283,6 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
           </label>
         </div>
       ) : (
-        // Your existing slider content
         <div 
           className="story-container"
           onTouchStart={handleTouchStart}
@@ -1178,6 +1308,15 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
           >
             <ChevronLeft />
           </button>
+          <audio 
+            ref={musicRef} 
+            loop={true} 
+            onPlay={() => {
+              if (musicRef.current) {
+                musicRef.current.currentTime = 0;
+              }
+            }} 
+          />
 
           <button
             onClick={handleNext}
@@ -1212,13 +1351,17 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
       )}
 
       <BottomMenu 
-      onFileUpload={handleFileUpload} 
-      onSaveSession={() => setShowExportModal(true)}  // Changed this line
-      onPlayPause={handlePlayPause}
-      isPlaying={isPlaying}
-      duration={duration}
-      onDurationChange={setDuration}
-      onEdit={() => setShowEditPanel(true)}
+        onFileUpload={handleFileUpload} 
+         onSaveSession={() => setShowExportModal(true)}  
+         onPlayPause={handlePlayPause}
+        isPlaying={isPlaying}
+        duration={duration}
+        onDurationChange={setDuration}
+        onEdit={() => setShowEditPanel(true)}
+        onMusicUpload={handleMusicUpload}
+        onBPMChange={handleBPMChange}
+        musicUrl={musicUrl}
+        currentBPM={bpm}
       />
 
       {showEditPanel && (
@@ -1254,6 +1397,9 @@ const handleSaveSession = async (resolution = '1080x1920') => { // Added resolut
       isExporting={isExporting}
     />
   </div>
+  </div>
+    </div>
+
   );
 };
 

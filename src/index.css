@@ -10,24 +10,42 @@ body {
 
 .app-container {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Change from center to flex-start */
   justify-content: center;
   padding: 20px;
+  background-color: #121212;
+  min-height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;          /* Change from -50px to 0 */
+  left: 0;
+  padding-top: 0;  /* Add this to remove top padding */
 }
 
+.app-content {
+  width: 100%;
+  max-width: 390px;
+  height: 925px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  padding: 10px;
+  margin: 0 auto;
+  margin-top: 10px; 
+  padding-bottom: 80px;
+}
 .story-container {
   width: 100%;
-  max-width: 390px;  /* Standard mobile width */
-  height: 80vh;      /* Responsive height */
-  max-height: 700px; /* Maximum height */
+  height: 80vh;
+  max-height: 700px;
   margin: 0 auto;
   position: relative;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  perspective: 1000px; /* Add this line */
-  transform-style: preserve-3d; /* Add this line */
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  background: #1a1a1a;
+  border-radius: 24px;
+  border: 2px solid #32CD32;
+  margin-top: -35px;
+  box-shadow: 0 0 20px rgba(50, 205, 50, 0.2);
 }
 
 .story-slide {
@@ -38,6 +56,17 @@ body {
   left: 0;
   backface-visibility: hidden; /* Add this line */
   transform-style: preserve-3d; /* Add this line */
+}
+
+.slider-title {
+  color: #32CD32; /* Lime green */
+  font-size: 14px;
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px rgba(50, 205, 50, 0.5);
 }
 
 .media-content {
@@ -125,18 +154,22 @@ body {
   align-items: center;
   height: 100%;
   min-height: 300px;
+  background: #1a1a1a;
+  border-radius: 16px;
+  border: 2px solid #32CD32;
 }
 
 .file-upload-label {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   cursor: pointer;
-  color: #666;
-  padding: 20px;
-  border-radius: 12px;
-  transition: all 0.2s;
+  color: #32CD32;
+  padding: 32px;
+  border-radius: 20px;
+  background: rgba(50, 205, 50, 0.1);
+  transition: all 0.3s ease;
 }
 
 .file-upload-label:hover {
@@ -223,6 +256,9 @@ body {
 
 .modal-content.start-point-modal {
   max-width: 600px; /* Larger max-width for video content */
+  background: #1a1a1a;
+  border: 2px solid #32CD32;
+  color: white;
 }
 
 /* Preview Video in Start Point Modal */
@@ -284,7 +320,7 @@ body {
 .modal-content h3 {
   margin: 0 0 16px 0;
   font-size: 1.25rem;
-  color: #333;
+  color: #32CD32;
 }
 
 .modal-filename {
@@ -322,12 +358,20 @@ body {
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
+  background: rgba(50, 205, 50, 0.2);
+  color: #32CD32;
+  border: 1px solid #32CD32;
 }
 
 .modal-button.cancel {
   background: #f0f0f0;
   border: none;
   color: #666;
+}
+
+
+.modal-button:hover {
+  background: rgba(50, 205, 50, 0.3);
 }
 
 .modal-button.cancel:hover {
@@ -342,6 +386,10 @@ body {
 
 .modal-button.submit:hover {
   background: #5a6fe8;
+}
+
+.time-slider {
+  accent-color: #32CD32;
 }
 
 .slider-container {
@@ -425,17 +473,22 @@ body {
 .bottom-menu {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
-  background-color: rgba(0, 0, 0, 0.8);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 390px;
+  background: rgba(18, 18, 18, 0.95);
+  border: 1px solid #32CD32;
   padding: 16px;
   z-index: 1000;
+  margin-bottom: 20px;
 }
 
 .bottom-menu-buttons {
   display: flex;
   justify-content: space-around;
   align-items: center;
+  color: #32CD32;
 }
 
 /* Update the existing button style */
@@ -464,6 +517,7 @@ body {
 
 .bottom-menu-button:hover {
   transform: scale(1.1);
+  background: rgba(50, 205, 50, 0.1);
 }
 
 .bottom-menu-icon {
@@ -481,14 +535,20 @@ body {
   display: none;
 }
 
+.progress-bar.active {
+  background: #32CD32;
+}
+
 .duration-panel {
   position: absolute;
   bottom: 100%;
   left: 0;
   right: 0;
+  width: 100%;
+  max-width: 390px; /* Match slider max-width */
   background-color: rgba(0, 0, 0, 0.8);
-  padding: 24px 16px; /* Increased vertical padding */
-  min-height: 120px; /* Set minimum height */
+  padding: 24px 16px;
+  min-height: 120px;
   animation: slideUp 0.3s ease-out;
   display: flex;
   flex-direction: column;
@@ -557,10 +617,11 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: rgba(255, 255, 255, 0.98);
+  background-color: #1a1a1a;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  border-top: 2px solid #32CD32;
+  box-shadow: 0 -4px 20px rgba(50, 205, 50, 0.15);
   z-index: 50;
   height: 70vh;
   padding: 16px;
@@ -573,14 +634,14 @@ body {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #32CD32;
   margin-bottom: 16px;
 }
 
 .edit-panel-header h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #32CD32;
   margin: 0;
 }
 
@@ -752,6 +813,65 @@ body {
   border-radius: 10px;
 }
 
+.music-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 390px; /* Match slider max-width */
+  background: rgba(0, 0, 0, 0.9);
+  padding: 16px;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.music-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bpm-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+}
+
+.bpm-input {
+  width: 80px;
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid #666;
+  background: #333;
+  color: white;
+}
+
+.music-player {
+  width: 100%;
+}
+
+.music-player audio {
+  width: 100%;
+  height: 32px;
+}
+
+.upload-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #444;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+}
+
+.hidden-input {
+  display: none;
+}
+
 /* Mobile Optimizations */
 @media (max-width: 768px) {
   .edit-panel {
@@ -875,5 +995,15 @@ body {
   
   .bottom-menu {
     padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+@media screen and (min-height: 800px) {
+  .app-content {
+    padding-bottom: 100px; /* More space on taller screens */
+  }
+  
+  .bottom-menu {
+    margin-bottom: 30px; /* More space on taller screens */
   }
 }
